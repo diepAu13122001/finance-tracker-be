@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class FinanceTrackerBeApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(FinanceTrackerBeApplication.class, args);
+		SpringApplication.run(com.diepau1312.financeTrackerBE.FinanceTrackerBeApplication.class, args);
 	}
 
 }

@@ -26,3 +26,9 @@ spring:
 
 server:
   port: 8081
+
+app:
+  jwt:
+    secret: your-super-secret-key-must-be-at-least-256-bits-long-for-hs256
+    expiration-ms: 900000       # 15 phút = access token
+    refresh-expiration-ms: 604800000  # 7 ngày = refresh token
