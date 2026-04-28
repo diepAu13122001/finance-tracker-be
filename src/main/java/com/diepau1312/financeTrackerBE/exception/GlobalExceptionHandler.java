@@ -62,4 +62,27 @@ public class GlobalExceptionHandler {
                         "message", message
                 ));
     }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<?> handleRuntime(RuntimeException ex) {
+        // Phân biệt lỗi "không tìm thấy" vs lỗi "không có quyền"
+        String message = ex.getMessage();
+
+        if (message != null && message.contains("Không có quyền")) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "FORBIDDEN", "message", message));
+        }
+
+        if (message != null && message.contains("Không tìm thấy")) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "NOT_FOUND", "message", message));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "INTERNAL_ERROR",
+                        "message", "Đã có lỗi xảy ra"));
+    }
 }

@@ -1,0 +1,66 @@
+package com.diepau1312.financeTrackerBE.controller;
+
+import com.diepau1312.financeTrackerBE.dto.transaction.TransactionRequest;
+import com.diepau1312.financeTrackerBE.dto.transaction.TransactionResponse;
+import com.diepau1312.financeTrackerBE.dto.transaction.TransactionSummaryResponse;
+import com.diepau1312.financeTrackerBE.service.TransactionService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/transactions")
+@RequiredArgsConstructor
+public class TransactionController {
+
+    private final TransactionService transactionService;
+
+    @PostMapping
+    public ResponseEntity<TransactionResponse> create(
+            @Valid @RequestBody TransactionRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(transactionService.create(request));
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<TransactionResponse>> getAll(
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(transactionService.getAll(pageable));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<TransactionSummaryResponse> getSummary() {
+        return ResponseEntity.ok(transactionService.getSummary());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TransactionResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(transactionService.getById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<TransactionResponse> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody TransactionRequest request
+    ) {
+        return ResponseEntity.ok(transactionService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        transactionService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
