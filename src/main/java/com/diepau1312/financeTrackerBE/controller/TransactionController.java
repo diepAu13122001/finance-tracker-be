@@ -20,47 +20,51 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TransactionController {
 
-    private final TransactionService transactionService;
+  private final TransactionService transactionService;
 
-    @PostMapping
-    public ResponseEntity<TransactionResponse> create(
-            @Valid @RequestBody TransactionRequest request
-    ) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(transactionService.create(request));
-    }
+  @PostMapping
+  public ResponseEntity<TransactionResponse> create(
+      @Valid @RequestBody TransactionRequest request
+  ) {
+    return ResponseEntity
+        .status(HttpStatus.CREATED)
+        .body(transactionService.create(request));
+  }
 
-    @GetMapping
-    public ResponseEntity<Page<TransactionResponse>> getAll(
-            @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(transactionService.getAll(pageable));
-    }
+  @GetMapping
+  public ResponseEntity<Page<TransactionResponse>> getAll(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size,
+      @RequestParam(required = false) String type  // "INCOME" | "EXPENSE" | null
+  ) {
+    return ResponseEntity.ok(transactionService.getAll(page, size, type));
+  }
 
-    @GetMapping("/summary")
-    public ResponseEntity<TransactionSummaryResponse> getSummary() {
-        return ResponseEntity.ok(transactionService.getSummary());
-    }
+  @GetMapping("/summary")
+  public ResponseEntity<TransactionSummaryResponse> getSummary(
+      @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) Integer month,
+      @RequestParam(required = false) Integer quarter
+  ) {
+    return ResponseEntity.ok(transactionService.getSummary(year, month, quarter));
+  }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<TransactionResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(transactionService.getById(id));
-    }
+  @GetMapping("/{id}")
+  public ResponseEntity<TransactionResponse> getById(@PathVariable UUID id) {
+    return ResponseEntity.ok(transactionService.getById(id));
+  }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<TransactionResponse> update(
-            @PathVariable UUID id,
-            @Valid @RequestBody TransactionRequest request
-    ) {
-        return ResponseEntity.ok(transactionService.update(id, request));
-    }
+  @PutMapping("/{id}")
+  public ResponseEntity<TransactionResponse> update(
+      @PathVariable UUID id,
+      @Valid @RequestBody TransactionRequest request
+  ) {
+    return ResponseEntity.ok(transactionService.update(id, request));
+  }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        transactionService.delete(id);
-        return ResponseEntity.noContent().build();
-    }
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    transactionService.delete(id);
+    return ResponseEntity.noContent().build();
+  }
 }

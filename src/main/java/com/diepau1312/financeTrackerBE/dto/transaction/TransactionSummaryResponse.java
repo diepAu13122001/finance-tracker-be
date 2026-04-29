@@ -3,6 +3,8 @@ package com.diepau1312.financeTrackerBE.dto.transaction;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 @Builder
 public class TransactionSummaryResponse {
@@ -15,4 +17,6 @@ public class TransactionSummaryResponse {
     private long  transactionCount;   // số giao dịch tháng này
     private int   transactionLimit;   // giới hạn (-1 = không giới hạn)
     private boolean limitReached;
+    private LocalDate startDate;
+    private LocalDate endDate;
 }

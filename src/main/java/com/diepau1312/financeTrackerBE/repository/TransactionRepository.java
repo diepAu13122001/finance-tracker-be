@@ -14,34 +14,38 @@ import java.util.UUID;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
 
-    // Lấy danh sách giao dịch của user, sắp xếp mới nhất — có phân trang
-    Page<Transaction> findByUserIdOrderByTransactionDateDesc(UUID userId, Pageable pageable);
+  // Lấy danh sách giao dịch của user, sắp xếp mới nhất — có phân trang
+  Page<Transaction> findByUserIdOrderByTransactionDateDesc(
+      UUID userId, Pageable pageable);
 
-    // Đếm giao dịch trong tháng hiện tại — dùng để check giới hạn Free plan
-    @Query("""
-        SELECT COUNT(t) FROM Transaction t
-        WHERE t.user.id = :userId
-          AND t.transactionDate >= :startDate
-          AND t.transactionDate <= :endDate
-    """)
-    long countByUserIdAndDateBetween(
-            @Param("userId")    UUID userId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate")   LocalDate endDate
-    );
+  Page<Transaction> findByUserIdAndTypeOrderByTransactionDateDesc(
+      UUID userId, Transaction.TransactionType type, Pageable pageable);
 
-    // Tổng thu/chi theo type trong khoảng thời gian — dùng cho summary cards
-    @Query("""
-        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
-        WHERE t.user.id = :userId
-          AND t.type = :type
-          AND t.transactionDate >= :startDate
-          AND t.transactionDate <= :endDate
-    """)
-    Long sumAmountByUserIdAndTypeAndDateBetween(
-            @Param("userId")    UUID userId,
-            @Param("type")      Transaction.TransactionType type,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate")   LocalDate endDate
-    );
+  // Đếm giao dịch trong tháng hiện tại — dùng để check giới hạn Free plan
+  @Query("""
+          SELECT COUNT(t) FROM Transaction t
+          WHERE t.user.id = :userId
+            AND t.transactionDate >= :startDate
+            AND t.transactionDate <= :endDate
+      """)
+  long countByUserIdAndDateBetween(
+      @Param("userId") UUID userId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate
+  );
+
+  // Tổng thu/chi theo type trong khoảng thời gian — dùng cho summary cards
+  @Query("""
+          SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+          WHERE t.user.id = :userId
+            AND t.type = :type
+            AND t.transactionDate >= :startDate
+            AND t.transactionDate <= :endDate
+      """)
+  Long sumAmountByUserIdAndTypeAndDateBetween(
+      @Param("userId") UUID userId,
+      @Param("type") Transaction.TransactionType type,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate
+  );
 }

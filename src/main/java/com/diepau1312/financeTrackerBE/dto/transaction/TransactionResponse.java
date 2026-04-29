@@ -12,12 +12,12 @@ import java.util.UUID;
 @Builder
 public class TransactionResponse {
 
-    private UUID            id;
-    private TransactionType type;
-    private Long            amount;
-    private String          currency;
-    private String          note;
-    private LocalDate       transactionDate;
-    private String          source;
-    private LocalDateTime   createdAt;
+  private UUID id;
+  private TransactionType type;
+  private Long amount;
+  private String currency;
+  private String note;
+  private LocalDate transactionDate;
+  private String source;
+  private LocalDateTime createdAt;
 }
