@@ -1,12 +1,16 @@
-# Đọc từ environment variables — không hardcode giá trị thật
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
+  flyway:
+    url: ${SPRING_DATASOURCE_URL}
+    user: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
+# ❌ Xóa dòng server.port ở đây — để Railway tự inject PORT
 server:
-  port: ${PORT:8081}
+  port: ${PORT:8080}   # ✅ Đồng nhất với application.yml
 
 app:
   jwt:
