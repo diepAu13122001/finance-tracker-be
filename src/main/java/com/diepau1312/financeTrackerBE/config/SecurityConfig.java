@@ -38,15 +38,17 @@ public class SecurityConfig {
 
         // Cấu hình quyền truy cập từng endpoint
         .authorizeHttpRequests(auth -> auth
-                // Public endpoints — không cần token
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/webhooks/**").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/actuator/health").permitAll()
-                // SecurityConfig.java — cho phép /actuator/health không cần auth
-                .requestMatchers("/actuator/health").permitAll()
-                // Tất cả endpoint khác đều cần JWT hợp lệ
-                .anyRequest().authenticated()
+            // Public endpoints — không cần token
+            .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/webhooks/**").permitAll()
+            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+            .requestMatchers("/actuator/health").permitAll()
+            // SecurityConfig.java — cho phép /actuator/health không cần auth
+            .requestMatchers("/actuator/health").permitAll()
+            .requestMatchers("/swagger-ui.html").permitAll()
+
+            // Tất cả endpoint khác đều cần JWT hợp lệ
+            .anyRequest().authenticated()
         )
 
         // Thêm JWT filter chạy trước filter mặc định của Spring
