@@ -8,10 +8,6 @@ spring:
     user: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
 
-# ❌ Xóa dòng server.port ở đây — để Railway tự inject PORT
-server:
-  port: ${PORT:8080}   # ✅ Đồng nhất với application.yml
-
 app:
   jwt:
     secret: ${APP_JWT_SECRET}
