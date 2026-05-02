@@ -23,7 +23,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 @RequiredArgsConstructor
 public class AuthController {
 
-  private AuthService authService;
+  private final AuthService authService;
 
   @Operation(
       summary = "Đăng ký tài khoản mới",
