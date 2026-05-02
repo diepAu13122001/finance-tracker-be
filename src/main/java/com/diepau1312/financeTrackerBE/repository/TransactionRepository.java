@@ -51,6 +51,22 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
   );
 
   @Query("""
+          SELECT MONTH(t.transactionDate) as month,
+                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
+                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
+          FROM Transaction t
+          WHERE t.user.id = :userId
+            AND YEAR(t.transactionDate) = :year
+          GROUP BY MONTH(t.transactionDate)
+          ORDER BY MONTH(t.transactionDate) ASC
+      """)
+  List<Object[]> findMonthlyChartData(
+      @Param("userId") UUID userId,
+      @Param("year") int year
+  );
+
+  // Thêm query hỗ trợ startMonth/endMonth vào TransactionRepository
+  @Query("""
           SELECT t.transactionDate as date,
                  SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
                  SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
@@ -65,20 +81,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
       @Param("userId") UUID userId,
       @Param("startDate") LocalDate startDate,
       @Param("endDate") LocalDate endDate
-  );
-
-  @Query("""
-          SELECT MONTH(t.transactionDate) as month,
-                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
-                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
-          FROM Transaction t
-          WHERE t.user.id = :userId
-            AND YEAR(t.transactionDate) = :year
-          GROUP BY MONTH(t.transactionDate)
-          ORDER BY MONTH(t.transactionDate) ASC
-      """)
-  List<Object[]> findMonthlyChartData(
-      @Param("userId") UUID userId,
-      @Param("year") int year
   );
 }

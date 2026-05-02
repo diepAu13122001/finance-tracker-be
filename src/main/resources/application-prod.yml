@@ -8,6 +8,8 @@ spring:
 app:
   jwt:
     secret: ${APP_JWT_SECRET}
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost}
 
 logging:
   level:

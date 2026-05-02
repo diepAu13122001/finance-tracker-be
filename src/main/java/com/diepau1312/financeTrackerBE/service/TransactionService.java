@@ -189,18 +189,41 @@ public class TransactionService {
         .startDate(startDate).endDate(endDate).build();
   }
 
-  public List<DailyChartResponse> getDailyChart(Integer year, Integer month) {
+  // TransactionService.java
+  public List<DailyChartResponse> getDailyChart(
+      Integer year, Integer month,
+      Integer startMonth, Integer endMonth
+  ) {
     User user = getCurrentUser();
     LocalDate today = LocalDate.now();
     int targetYear = year != null ? year : today.getYear();
-    int targetMonth = month != null ? month : today.getMonthValue();
 
-    LocalDate startDate = LocalDate.of(targetYear, targetMonth, 1);
-    LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+    LocalDate startDate;
+    LocalDate endDate;
 
-    List<Object[]> rows = transactionRepository.findDailyChartData(user.getId(), startDate, endDate);
+    if (startMonth != null && endMonth != null) {
+      // Theo quý
+      startDate = LocalDate.of(targetYear, startMonth, 1);
+      endDate = LocalDate.of(targetYear, endMonth, 1)
+          .withDayOfMonth(
+              LocalDate.of(targetYear, endMonth, 1).lengthOfMonth()
+          );
+    } else {
+      // Theo tháng đơn
+      int targetMonth = month != null ? month : today.getMonthValue();
+      startDate = LocalDate.of(targetYear, targetMonth, 1);
+      endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+    }
 
-    return rows.stream().map(row -> DailyChartResponse.builder().date(row[0].toString()).income(row[1] != null ? ((Number) row[1]).longValue() : 0L).expense(row[2] != null ? ((Number) row[2]).longValue() : 0L).build()).toList();
+    return transactionRepository
+        .findDailyChartData(user.getId(), startDate, endDate)
+        .stream()
+        .map(row -> DailyChartResponse.builder()
+            .date(row[0].toString())
+            .income(row[1] != null ? ((Number) row[1]).longValue() : 0L)
+            .expense(row[2] != null ? ((Number) row[2]).longValue() : 0L)
+            .build())
+        .toList();
   }
 
   public List<MonthlyChartResponse> getMonthlyChart(Integer year) {

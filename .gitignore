@@ -34,3 +34,6 @@ build/
 
 application-local.yml
 .env
+
+# Application configs có thông tin nhạy cảm
+src/main/resources/application-local.yml

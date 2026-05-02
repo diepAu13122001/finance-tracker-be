@@ -21,42 +21,43 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
-    private final CorsConfigurationSource corsConfigurationSource; // 👈 thêm dòng này
+  private final JwtAuthFilter jwtAuthFilter;
+  private final CorsConfigurationSource corsConfigurationSource; // 👈 thêm dòng này
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                // Tắt CSRF — không cần với REST API dùng JWT
-                .csrf(AbstractHttpConfigurer::disable)
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+        .cors(cors -> cors.configurationSource(corsConfigurationSource))
+        // Tắt CSRF — không cần với REST API dùng JWT
+        .csrf(AbstractHttpConfigurer::disable)
 
-                // Không dùng session — mỗi request tự xác thực bằng JWT
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+        // Không dùng session — mỗi request tự xác thực bằng JWT
+        .sessionManagement(session ->
+            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+        )
 
-                // Cấu hình quyền truy cập từng endpoint
-                .authorizeHttpRequests(auth -> auth
-                        // Public endpoints — không cần token
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/webhooks/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
+        // Cấu hình quyền truy cập từng endpoint
+        .authorizeHttpRequests(auth -> auth
+                // Public endpoints — không cần token
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/webhooks/**").permitAll()
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/actuator/health").permitAll()
+                // SecurityConfig.java — cho phép /actuator/health không cần auth
+                .requestMatchers("/actuator/health").permitAll()
+                // Tất cả endpoint khác đều cần JWT hợp lệ
+                .anyRequest().authenticated()
+        )
 
-                        // Tất cả endpoint khác đều cần JWT hợp lệ
-                        .anyRequest().authenticated()
-                )
+        // Thêm JWT filter chạy trước filter mặc định của Spring
+        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-                // Thêm JWT filter chạy trước filter mặc định của Spring
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+  }
 
-        return http.build();
-    }
-
-    // BCrypt để hash password — cost factor 12 là cân bằng tốt giữa bảo mật và performance
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
+  // BCrypt để hash password — cost factor 12 là cân bằng tốt giữa bảo mật và performance
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder(12);
+  }
 }

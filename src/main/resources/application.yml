@@ -1,22 +1,16 @@
 spring:
+  config:
+    import: optional:application-local.yml
   application:
     name: finance-tracker
-
-  datasource:
-    url: jdbc:postgresql://localhost:5432/finance_tracker
-    username: ft_user
-    password: ft_password
-    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       ddl-auto: validate
-      # validate = JPA kiểm tra schema khớp với entity nhưng KHÔNG tự sửa
-      # Flyway sẽ lo việc tạo/sửa bảng — JPA chỉ đọc
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   flyway:
@@ -24,11 +18,19 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 server:
   port: 8081
 
 app:
   jwt:
-    secret: your-super-secret-key-must-be-at-least-256-bits-long-for-hs256
-    expiration-ms: 900000       # 15 phút = access token
-    refresh-expiration-ms: 604800000  # 7 ngày = refresh token
+    expiration-ms: 900000
+    refresh-expiration-ms: 604800000

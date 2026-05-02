@@ -70,9 +70,13 @@ public class TransactionController {
   @GetMapping("/chart/daily")
   public ResponseEntity<List<DailyChartResponse>> getDailyChart(
       @RequestParam(required = false) Integer year,
-      @RequestParam(required = false) Integer month
+      @RequestParam(required = false) Integer month,
+      @RequestParam(required = false) Integer startMonth,
+      @RequestParam(required = false) Integer endMonth
   ) {
-    return ResponseEntity.ok(transactionService.getDailyChart(year, month));
+    return ResponseEntity.ok(
+        transactionService.getDailyChart(year, month, startMonth, endMonth)
+    );
   }
 
   @GetMapping("/chart/monthly")

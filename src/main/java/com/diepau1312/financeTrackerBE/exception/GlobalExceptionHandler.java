@@ -15,7 +15,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<?> handleNotFound(NotFoundException ex) {
-    log.warn("Not found: {}", ex.getMessage());
+    log.debug("Not found: {}", ex.getMessage());
     return ResponseEntity
         .status(HttpStatus.NOT_FOUND)
         .body(Map.of("error", "NOT_FOUND", "message", ex.getMessage()));
@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(AuthException.class)
   public ResponseEntity<?> handleAuth(AuthException ex) {
     return ResponseEntity
-        .status(HttpStatus.UNAUTHORIZED)
+        .status(HttpStatus.BAD_REQUEST)
         .body(Map.of(
             "error", "AUTH_ERROR",
             "message", ex.getMessage()
