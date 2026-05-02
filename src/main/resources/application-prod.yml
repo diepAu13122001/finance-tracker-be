@@ -6,7 +6,7 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8081}
 
 app:
   jwt:
