@@ -1,8 +1,6 @@
 package com.diepau1312.financeTrackerBE.controller;
 
-import com.diepau1312.financeTrackerBE.dto.transaction.TransactionRequest;
-import com.diepau1312.financeTrackerBE.dto.transaction.TransactionResponse;
-import com.diepau1312.financeTrackerBE.dto.transaction.TransactionSummaryResponse;
+import com.diepau1312.financeTrackerBE.dto.transaction.*;
 import com.diepau1312.financeTrackerBE.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -66,5 +65,20 @@ public class TransactionController {
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     transactionService.delete(id);
     return ResponseEntity.noContent().build();
+  }
+
+  @GetMapping("/chart/daily")
+  public ResponseEntity<List<DailyChartResponse>> getDailyChart(
+      @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) Integer month
+  ) {
+    return ResponseEntity.ok(transactionService.getDailyChart(year, month));
+  }
+
+  @GetMapping("/chart/monthly")
+  public ResponseEntity<List<MonthlyChartResponse>> getMonthlyChart(
+      @RequestParam(required = false) Integer year
+  ) {
+    return ResponseEntity.ok(transactionService.getMonthlyChart(year));
   }
 }

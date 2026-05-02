@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -47,5 +48,37 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
       @Param("type") Transaction.TransactionType type,
       @Param("startDate") LocalDate startDate,
       @Param("endDate") LocalDate endDate
+  );
+
+  @Query("""
+          SELECT t.transactionDate as date,
+                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
+                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
+          FROM Transaction t
+          WHERE t.user.id = :userId
+            AND t.transactionDate >= :startDate
+            AND t.transactionDate <= :endDate
+          GROUP BY t.transactionDate
+          ORDER BY t.transactionDate ASC
+      """)
+  List<Object[]> findDailyChartData(
+      @Param("userId") UUID userId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate
+  );
+
+  @Query("""
+          SELECT MONTH(t.transactionDate) as month,
+                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
+                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
+          FROM Transaction t
+          WHERE t.user.id = :userId
+            AND YEAR(t.transactionDate) = :year
+          GROUP BY MONTH(t.transactionDate)
+          ORDER BY MONTH(t.transactionDate) ASC
+      """)
+  List<Object[]> findMonthlyChartData(
+      @Param("userId") UUID userId,
+      @Param("year") int year
   );
 }
