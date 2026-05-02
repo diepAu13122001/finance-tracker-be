@@ -1,0 +1,15 @@
+# Đọc từ environment variables — không hardcode giá trị thật
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET}
+
+logging:
+  level:
+    root: WARN
+    com.diepau1312: INFO
