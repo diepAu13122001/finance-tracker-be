@@ -35,5 +35,6 @@ build/
 application-local.yml
 .env
 
+sql.sql
 # Application configs có thông tin nhạy cảm
 src/main/resources/application-local.yml

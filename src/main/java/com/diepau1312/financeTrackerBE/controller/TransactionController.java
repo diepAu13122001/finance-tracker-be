@@ -1,5 +1,6 @@
 package com.diepau1312.financeTrackerBE.controller;
 
+import com.diepau1312.financeTrackerBE.dto.common.PageResponse;
 import com.diepau1312.financeTrackerBE.dto.transaction.*;
 import com.diepau1312.financeTrackerBE.service.TransactionService;
 import jakarta.validation.Valid;
@@ -40,17 +41,16 @@ public class TransactionController {
 
   @Operation(summary = "Danh sách giao dịch", description = "Phân trang, filter theo type")
   @GetMapping
-  public ResponseEntity<Page<TransactionResponse>> getAll(
-      @Parameter(description = "Số trang (bắt đầu từ 0)")
+  public ResponseEntity<PageResponse<TransactionResponse>> getAll(
       @RequestParam(defaultValue = "0") int page,
-
-      @Parameter(description = "Số item mỗi trang")
       @RequestParam(defaultValue = "20") int size,
-
-      @Parameter(description = "Filter: INCOME, EXPENSE. Bỏ trống = tất cả")
       @RequestParam(required = false) String type
   ) {
-    return ResponseEntity.ok(transactionService.getAll(page, size, type));
+    // Giới hạn size tối đa — tránh request lấy 10000 items
+    int clampedSize = Math.min(size, 100);
+
+    var result = transactionService.getAll(page, clampedSize, type);
+    return ResponseEntity.ok(PageResponse.from(result));
   }
 
   @Operation(

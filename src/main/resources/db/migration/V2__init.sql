@@ -1,3 +1,7 @@
+-- Chạy với superuser trước
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ft_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ft_user;
+
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 

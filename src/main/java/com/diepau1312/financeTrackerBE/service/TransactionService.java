@@ -11,6 +11,8 @@ import com.diepau1312.financeTrackerBE.repository.UserRepository;
 import com.diepau1312.financeTrackerBE.repository.UserSubscriptionRepository;
 import com.diepau1312.financeTrackerBE.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -67,6 +69,7 @@ public class TransactionService {
   // ─── CRUD Operations ──────────────────────────────────────────────────────
 
   @Transactional
+  @CacheEvict(value = "transaction-summary", allEntries = true)
   public TransactionResponse create(TransactionRequest request) {
     User user = getCurrentUser();
     String planId = getCurrentUserPlan(user.getId());
@@ -110,6 +113,7 @@ public class TransactionService {
   }
 
   @Transactional
+  @CacheEvict(value = "transaction-summary", allEntries = true)
   public TransactionResponse update(UUID id, TransactionRequest request) {
     User user = getCurrentUser();
     Transaction transaction = transactionRepository.findById(id).orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
@@ -128,6 +132,7 @@ public class TransactionService {
   }
 
   @Transactional
+  @CacheEvict(value = "transaction-summary", allEntries = true)
   public void delete(UUID id) {
     User user = getCurrentUser();
     Transaction transaction = transactionRepository.findById(id).orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
@@ -140,6 +145,7 @@ public class TransactionService {
   }
 
   @Transactional(readOnly = true)
+  @Cacheable(value = "transaction-summary", key = "#userId + '-' + #year + '-' + #month")
   public TransactionSummaryResponse getSummary(Integer year, Integer month, Integer quarter) {
     User user = getCurrentUser();
     String planId = getCurrentUserPlan(user.getId());
