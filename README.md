@@ -136,3 +136,11 @@ APP_JWT_SECRET
 APP_CORS_ORIGINS
 SPRING_PROFILES_ACTIVE=prod
 ```
+
+---
+
+## 👨‍💻 Tác Giả
+
+**Diệp Âu**
+[GitHub](https://github.com/diepau13122001) ·
+[Email](mailto:diepau1312@gmail.com)
