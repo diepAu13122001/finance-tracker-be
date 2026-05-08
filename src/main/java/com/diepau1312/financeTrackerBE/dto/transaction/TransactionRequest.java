@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
-
+import java.util.UUID;
 import java.time.LocalDate;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -35,4 +35,6 @@ public class TransactionRequest {
 
   @Schema(description = "Đơn vị tiền tệ", example = "VND", defaultValue = "VND")
   private String currency = "VND";
+
+  private UUID categoryId;  // optional, có thể null
 }

@@ -1,5 +1,7 @@
 package com.diepau1312.financeTrackerBE.dto.transaction;
 
+import com.diepau1312.financeTrackerBE.dto.category.CategoryResponse;
+import com.diepau1312.financeTrackerBE.entity.Transaction;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
 import lombok.Builder;
 import lombok.Data;
@@ -20,4 +22,21 @@ public class TransactionResponse {
   private LocalDate transactionDate;
   private String source;
   private LocalDateTime createdAt;
+  private CategoryResponse category;
+
+  public static TransactionResponse from(Transaction t) {
+    return TransactionResponse.builder()
+        .id(t.getId())
+        .type(t.getType())
+        .amount(t.getAmount())
+        .currency(t.getCurrency())
+        .note(t.getNote())
+        .createdAt(t.getCreatedAt())
+        .transactionDate(t.getTransactionDate())
+        .source(t.getSource())
+        .category(t.getCategory() != null
+            ? CategoryResponse.from(t.getCategory())
+            : null)
+        .build();
+  }
 }

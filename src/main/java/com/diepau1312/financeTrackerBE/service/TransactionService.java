@@ -3,6 +3,7 @@ package com.diepau1312.financeTrackerBE.service;
 import com.diepau1312.financeTrackerBE.dto.transaction.*;
 import com.diepau1312.financeTrackerBE.entity.Transaction;
 import com.diepau1312.financeTrackerBE.entity.User;
+import com.diepau1312.financeTrackerBE.exception.AuthException;
 import com.diepau1312.financeTrackerBE.exception.ForbiddenException;
 import com.diepau1312.financeTrackerBE.exception.NotFoundException;
 import com.diepau1312.financeTrackerBE.exception.PlanUpgradeRequiredException;
@@ -19,12 +20,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import com.diepau1312.financeTrackerBE.repository.CategoryRepository;
+import com.diepau1312.financeTrackerBE.entity.Category;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +40,7 @@ public class TransactionService {
   private final TransactionRepository transactionRepository;
   private final UserRepository userRepository;
   private final UserSubscriptionRepository subscriptionRepository;
+  private final CategoryRepository categoryRepository;
 
   // ─── Lấy user hiện tại từ Security Context ────────────────────────────────
   private User getCurrentUser() {
@@ -76,8 +82,19 @@ public class TransactionService {
     // Kiểm tra giới hạn trước khi tạo
     checkTransactionLimit(user.getId(), planId);
 
-    Transaction transaction = Transaction.builder().user(user).type(request.getType()).amount(request.getAmount()).currency(request.getCurrency()).note(request.getNote()).transactionDate(request.getTransactionDate()).source("manual").build();
+    Category category = null;
+    if (request.getCategoryId() != null) {
+      category = categoryRepository.findByIdAndUserId(
+              request.getCategoryId(), user.getId())
+          .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
 
+      // Validate type khớp với transaction type
+      if (category.getType() != request.getType()) {
+        throw new AuthException(
+            "Danh mục " + category.getName() + " không khớp với loại giao dịch");
+      }
+    }
+    Transaction transaction = Transaction.builder().user(user).type(request.getType()).amount(request.getAmount()).currency(request.getCurrency()).note(request.getNote()).transactionDate(request.getTransactionDate()).source("manual").category(category).build();
     return toResponse(transactionRepository.save(transaction));
   }
 
