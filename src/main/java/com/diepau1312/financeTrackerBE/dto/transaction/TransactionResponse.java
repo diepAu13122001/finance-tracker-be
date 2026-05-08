@@ -23,6 +23,7 @@ public class TransactionResponse {
   private String source;
   private LocalDateTime createdAt;
   private CategoryResponse category;
+  private LocalDateTime updatedAt;
 
   public static TransactionResponse from(Transaction t) {
     return TransactionResponse.builder()
@@ -37,6 +38,7 @@ public class TransactionResponse {
         .category(t.getCategory() != null
             ? CategoryResponse.from(t.getCategory())
             : null)
+        .updatedAt(t.getUpdatedAt())
         .build();
   }
 }

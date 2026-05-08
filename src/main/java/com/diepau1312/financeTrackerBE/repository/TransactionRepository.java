@@ -15,14 +15,12 @@ import java.util.UUID;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
 
-  // Lấy danh sách giao dịch của user, sắp xếp mới nhất — có phân trang
   Page<Transaction> findByUserIdOrderByTransactionDateDesc(
       UUID userId, Pageable pageable);
 
   Page<Transaction> findByUserIdAndTypeOrderByTransactionDateDesc(
       UUID userId, Transaction.TransactionType type, Pageable pageable);
 
-  // Đếm giao dịch trong tháng hiện tại — dùng để check giới hạn Free plan
   @Query("""
           SELECT COUNT(t) FROM Transaction t
           WHERE t.user.id = :userId
@@ -35,7 +33,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
       @Param("endDate") LocalDate endDate
   );
 
-  // Tổng thu/chi theo type trong khoảng thời gian — dùng cho summary cards
   @Query("""
           SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
           WHERE t.user.id = :userId
@@ -50,26 +47,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
       @Param("endDate") LocalDate endDate
   );
 
-  @Query("""
-          SELECT MONTH(t.transactionDate) as month,
-                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
-                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
-          FROM Transaction t
-          WHERE t.user.id = :userId
-            AND YEAR(t.transactionDate) = :year
-          GROUP BY MONTH(t.transactionDate)
-          ORDER BY MONTH(t.transactionDate) ASC
-      """)
+  // ✅ Chuyển sang nativeQuery=true để dùng date_trunc PostgreSQL
+  // ✅ Cast transaction_date::TIMESTAMP — khớp với expression index ở V3
+  @Query(value = """
+          SELECT
+              EXTRACT(MONTH FROM transaction_date)                                    AS month,
+              SUM(CASE WHEN type = 'INCOME'  THEN amount ELSE 0 END)                 AS income,
+              SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END)                 AS expense
+          FROM transactions
+          WHERE user_id = :userId
+            AND EXTRACT(YEAR FROM transaction_date) = :year
+          GROUP BY date_trunc('month', transaction_date::TIMESTAMP)
+          ORDER BY date_trunc('month', transaction_date::TIMESTAMP) ASC
+      """, nativeQuery = true)
   List<Object[]> findMonthlyChartData(
       @Param("userId") UUID userId,
       @Param("year") int year
   );
 
-  // Thêm query hỗ trợ startMonth/endMonth vào TransactionRepository
+  // ✅ Query này dùng JPQL thuần — không cần sửa vì không có MONTH()/YEAR()
   @Query("""
-          SELECT t.transactionDate as date,
-                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END) as income,
-                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END) as expense
+          SELECT t.transactionDate                                                     AS date,
+                 SUM(CASE WHEN t.type = 'INCOME'  THEN t.amount ELSE 0 END)           AS income,
+                 SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END)           AS expense
           FROM Transaction t
           WHERE t.user.id = :userId
             AND t.transactionDate >= :startDate
