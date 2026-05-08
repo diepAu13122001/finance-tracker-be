@@ -24,6 +24,10 @@ public class UserService {
     return userRepository.findByEmail(SecurityUtil.getCurrentUserEmail()).orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
   }
 
+  private String getCurrentUserEmail() {
+    return getCurrentUser().getEmail() ==  null ? "" : getCurrentUser().getEmail() ;
+  }
+
   @Transactional(readOnly = true)
   public UserProfileResponse getProfile() {
     User user = getCurrentUser();
