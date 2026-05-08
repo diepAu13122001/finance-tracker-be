@@ -18,44 +18,47 @@ import java.util.UUID;
 @Builder
 public class Transaction {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private TransactionType type;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 10)
+  private TransactionType type;
 
-    @Column(nullable = false)
-    private Long amount;
+  @Column(nullable = false)
+  private Long amount;
 
-    @Column(nullable = false, length = 3)
-    @Builder.Default
-    private String currency = "VND";
+  @Column(nullable = false, length = 3)
+  @Builder.Default
+  private String currency = "VND";
 
-    private String note;
+  private String note;
 
-    @Column(name = "transaction_date", nullable = false)
-    private LocalDate transactionDate;
+  @Column(name = "transaction_date", nullable = false)
+  private LocalDate transactionDate;
 
-    @Column(nullable = false, length = 20)
-    @Builder.Default
-    private String source = "manual";
+  @Column(nullable = false, length = 20)
+  @Builder.Default
+  private String source = "manual";
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "category_id") // không có nullable=false vì cho phép NULL
+  private Category category;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+  @CreationTimestamp
+  @Column(name = "created_at", updatable = false)
+  private LocalDateTime createdAt;
 
-    // Enum lồng trong class — gọn gàng, liên quan chặt chẽ
-    public enum TransactionType {
-        INCOME, EXPENSE
-    }
+  @UpdateTimestamp
+  @Column(name = "updated_at")
+  private LocalDateTime updatedAt;
+
+  public enum TransactionType {
+    INCOME, EXPENSE
+  }
 }

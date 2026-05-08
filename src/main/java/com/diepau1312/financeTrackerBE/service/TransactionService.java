@@ -16,10 +16,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +89,7 @@ public class TransactionService {
     Page<Transaction> result;
 
     if (type != null && !type.isBlank()) {
-      Transaction.TransactionType transactionType = Transaction.TransactionType.valueOf(type.toUpperCase());
+      TransactionType transactionType = TransactionType.valueOf(type.toUpperCase());
       result = transactionRepository.findByUserIdAndTypeOrderByTransactionDateDesc(user.getId(), transactionType, pageable);
     } else {
       result = transactionRepository.findByUserIdOrderByTransactionDateDesc(user.getId(), pageable);
@@ -182,9 +181,9 @@ public class TransactionService {
     }
 
     // ── Query ─────────────────────────────────────────────────────────────────
-    Long totalIncome = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(user.getId(), Transaction.TransactionType.INCOME, startDate, endDate);
+    Long totalIncome = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(user.getId(), TransactionType.INCOME, startDate, endDate);
 
-    Long totalExpense = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(user.getId(), Transaction.TransactionType.EXPENSE, startDate, endDate);
+    Long totalExpense = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(user.getId(), TransactionType.EXPENSE, startDate, endDate);
 
     long count = transactionRepository.countByUserIdAndDateBetween(user.getId(), startDate, endDate);
 
@@ -195,7 +194,6 @@ public class TransactionService {
         .startDate(startDate).endDate(endDate).build();
   }
 
-  // TransactionService.java
   public List<DailyChartResponse> getDailyChart(
       Integer year, Integer month,
       Integer startMonth, Integer endMonth
