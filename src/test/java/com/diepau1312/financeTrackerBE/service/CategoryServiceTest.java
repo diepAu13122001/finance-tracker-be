@@ -57,10 +57,12 @@ class CategoryServiceTest {
     createRequest.setColor("#ff748b");
     createRequest.setType(TransactionType.EXPENSE);
 
-    // Mock static SecurityUtil.getCurrentUserEmail()
     securityUtilMock = mockStatic(SecurityUtil.class);
     securityUtilMock.when(SecurityUtil::getCurrentUserEmail).thenReturn(EMAIL);
+
+    // ✅ Cần cả 2: findByEmail (getCurrentUserId) + findById (create method)
     when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(mockUser));
+    when(userRepository.findById(USER_ID)).thenReturn(Optional.of(mockUser));
   }
 
   @AfterEach
@@ -71,17 +73,9 @@ class CategoryServiceTest {
   @Test
   @DisplayName("Create thành công với data hợp lệ")
   void create_validRequest_returnsResponse() {
-    when(categoryRepository.existsByUserIdAndNameAndType(
-        USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(false);
+    when(categoryRepository.existsByUserIdAndNameAndType(USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(false);
 
-    Category saved = Category.builder()
-        .id(CATEGORY_ID)
-        .user(mockUser)
-        .name("Ăn uống")
-        .icon("utensils")
-        .color("#ff748b")
-        .type(TransactionType.EXPENSE)
-        .build();
+    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser).name("Ăn uống").icon("utensils").color("#ff748b").type(TransactionType.EXPENSE).build();
     when(categoryRepository.save(any())).thenReturn(saved);
 
     CategoryResponse response = categoryService.create(createRequest);
@@ -94,12 +88,9 @@ class CategoryServiceTest {
   @Test
   @DisplayName("Create thất bại khi tên trùng cùng type")
   void create_duplicateName_throwsAuthException() {
-    when(categoryRepository.existsByUserIdAndNameAndType(
-        USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(true);
+    when(categoryRepository.existsByUserIdAndNameAndType(USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(true);
 
-    assertThatThrownBy(() -> categoryService.create(createRequest))
-        .isInstanceOf(AuthException.class)
-        .hasMessageContaining("Ăn uống");
+    assertThatThrownBy(() -> categoryService.create(createRequest)).isInstanceOf(AuthException.class).hasMessageContaining("Ăn uống");
 
     verify(categoryRepository, never()).save(any());
   }
@@ -109,16 +100,13 @@ class CategoryServiceTest {
   void create_sameName_differentType_succeeds() {
     // User đã có category EXPENSE "Đầu tư"
     // Giờ tạo INCOME "Đầu tư" — phải thành công
-    when(categoryRepository.existsByUserIdAndNameAndType(
-        USER_ID, "Đầu tư", TransactionType.INCOME)).thenReturn(false);
+    when(categoryRepository.existsByUserIdAndNameAndType(USER_ID, "Đầu tư", TransactionType.INCOME)).thenReturn(false);
 
     CategoryRequest req = new CategoryRequest();
     req.setName("Đầu tư");
     req.setType(TransactionType.INCOME);
 
-    Category saved = Category.builder().id(CATEGORY_ID)
-        .user(mockUser).name("Đầu tư")
-        .type(TransactionType.INCOME).build();
+    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser).name("Đầu tư").type(TransactionType.INCOME).build();
     when(categoryRepository.save(any())).thenReturn(saved);
 
     CategoryResponse response = categoryService.create(req);
@@ -129,37 +117,25 @@ class CategoryServiceTest {
   @Test
   @DisplayName("GetAll trả về tất cả categories của user")
   void getAll_returnsUserCategories() {
-    Category cat1 = Category.builder().id(UUID.randomUUID())
-        .user(mockUser).name("Ăn uống")
-        .type(TransactionType.EXPENSE).build();
-    Category cat2 = Category.builder().id(UUID.randomUUID())
-        .user(mockUser).name("Lương")
-        .type(TransactionType.INCOME).build();
+    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống").type(TransactionType.EXPENSE).build();
+    Category cat2 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Lương").type(TransactionType.INCOME).build();
 
-    when(categoryRepository.findByUserIdOrderByNameAsc(USER_ID))
-        .thenReturn(List.of(cat1, cat2));
-    when(categoryRepository.countTransactionsByCategoryId(any()))
-        .thenReturn(0L);
+    when(categoryRepository.findByUserIdOrderByNameAsc(USER_ID)).thenReturn(List.of(cat1, cat2));
+    when(categoryRepository.countTransactionsByCategoryId(any())).thenReturn(0L);
 
     List<CategoryResponse> result = categoryService.getAll(null);
 
     assertThat(result).hasSize(2);
-    assertThat(result).extracting(CategoryResponse::getName)
-        .containsExactly("Ăn uống", "Lương");
+    assertThat(result).extracting(CategoryResponse::getName).containsExactly("Ăn uống", "Lương");
   }
 
   @Test
   @DisplayName("GetAll filter theo type chỉ trả EXPENSE")
   void getAll_filterByType_returnsFiltered() {
-    Category cat1 = Category.builder().id(UUID.randomUUID())
-        .user(mockUser).name("Ăn uống")
-        .type(TransactionType.EXPENSE).build();
+    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống").type(TransactionType.EXPENSE).build();
 
-    when(categoryRepository.findByUserIdAndTypeOrderByNameAsc(
-        USER_ID, TransactionType.EXPENSE))
-        .thenReturn(List.of(cat1));
-    when(categoryRepository.countTransactionsByCategoryId(any()))
-        .thenReturn(0L);
+    when(categoryRepository.findByUserIdAndTypeOrderByNameAsc(USER_ID, TransactionType.EXPENSE)).thenReturn(List.of(cat1));
+    when(categoryRepository.countTransactionsByCategoryId(any())).thenReturn(0L);
 
     List<CategoryResponse> result = categoryService.getAll(TransactionType.EXPENSE);
 
@@ -170,10 +146,8 @@ class CategoryServiceTest {
   @Test
   @DisplayName("Delete thất bại khi category không tồn tại hoặc không thuộc user")
   void delete_notFound_throwsNotFoundException() {
-    when(categoryRepository.findByIdAndUserId(CATEGORY_ID, USER_ID))
-        .thenReturn(Optional.empty());
+    when(categoryRepository.findByIdAndUserId(CATEGORY_ID, USER_ID)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> categoryService.delete(CATEGORY_ID))
-        .isInstanceOf(NotFoundException.class);
+    assertThatThrownBy(() -> categoryService.delete(CATEGORY_ID)).isInstanceOf(NotFoundException.class);
   }
 }

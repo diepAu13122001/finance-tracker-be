@@ -11,19 +11,14 @@ import java.util.UUID;
 @Data
 @Builder
 public class CategoryResponse {
-
   private UUID id;
   private String name;
   private String icon;
   private String color;
   private TransactionType type;
   private LocalDateTime createdAt;
-
-  /**
-   * Số transactions đang dùng category này — hiển thị trong list view.
-   * Optional: chỉ trả khi controller request kèm count.
-   */
   private Long transactionCount;
+  private Long totalAmount;  // 👈 THÊM MỚI
 
   public static CategoryResponse from(Category cat) {
     return CategoryResponse.builder()
@@ -39,6 +34,13 @@ public class CategoryResponse {
   public static CategoryResponse from(Category cat, Long txCount) {
     CategoryResponse res = from(cat);
     res.setTransactionCount(txCount);
+    return res;
+  }
+
+  // 👇 THÊM MỚI: overload với cả count + amount
+  public static CategoryResponse from(Category cat, Long txCount, Long totalAmount) {
+    CategoryResponse res = from(cat, txCount);
+    res.setTotalAmount(totalAmount);
     return res;
   }
 }

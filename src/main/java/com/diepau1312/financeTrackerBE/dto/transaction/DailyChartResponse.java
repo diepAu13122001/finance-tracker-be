@@ -3,10 +3,13 @@ package com.diepau1312.financeTrackerBE.dto.transaction;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.UUID;
+
 @Data
 @Builder
 public class DailyChartResponse {
   private String date;        // "2026-01-14"
-  private Long   income;
-  private Long   expense;
+  private Long income;
+  private Long expense;
+
 }

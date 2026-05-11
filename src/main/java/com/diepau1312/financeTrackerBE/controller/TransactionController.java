@@ -2,6 +2,7 @@ package com.diepau1312.financeTrackerBE.controller;
 
 import com.diepau1312.financeTrackerBE.dto.common.PageResponse;
 import com.diepau1312.financeTrackerBE.dto.transaction.*;
+import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
 import com.diepau1312.financeTrackerBE.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,12 +45,11 @@ public class TransactionController {
   public ResponseEntity<PageResponse<TransactionResponse>> getAll(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size,
-      @RequestParam(required = false) String type
+      @RequestParam(required = false) String type,
+      @RequestParam(required = false) UUID categoryId
   ) {
-    // Giới hạn size tối đa — tránh request lấy 10000 items
     int clampedSize = Math.min(size, 100);
-
-    var result = transactionService.getAll(page, clampedSize, type);
+    var result = transactionService.getAll(page, clampedSize, type, categoryId); // 👈 pass categoryId
     return ResponseEntity.ok(PageResponse.from(result));
   }
 
@@ -90,6 +90,19 @@ public class TransactionController {
       @RequestParam(required = false) Integer year
   ) {
     return ResponseEntity.ok(transactionService.getMonthlyChart(year));
+  }
+
+  @Operation(summary = "Phân bổ thu/chi theo danh mục — Plus feature")
+  @GetMapping("/chart/categories")
+  public ResponseEntity<List<CategoryChartItem>> getCategoryChart(
+      @RequestParam(defaultValue = "EXPENSE") TransactionType type,
+      @RequestParam int year,
+      @RequestParam(required = false) Integer month,
+      @RequestParam(required = false) Integer startMonth,
+      @RequestParam(required = false) Integer endMonth
+  ) {
+    return ResponseEntity.ok(
+        transactionService.getCategoryChart(type, year, month, startMonth, endMonth));
   }
 
   @Operation(summary = "Cập nhật giao dịch")

@@ -4,6 +4,7 @@ import com.diepau1312.financeTrackerBE.entity.Category;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,4 +42,8 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
    */
   @Query("SELECT COUNT(t) FROM Transaction t WHERE t.category.id = :categoryId")
   long countTransactionsByCategoryId(UUID categoryId);
+
+  // 👇 THÊM MỚI: tổng tiền tất cả transactions của category (all time)
+  @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.category.id = :categoryId")
+  Long sumAmountByCategoryId(@Param("categoryId") UUID categoryId);
 }

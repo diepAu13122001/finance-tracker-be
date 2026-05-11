@@ -39,7 +39,9 @@ public class CategoryService {
     return categories.stream()
         .map(c -> CategoryResponse.from(
             c,
-            categoryRepository.countTransactionsByCategoryId(c.getId())))
+            categoryRepository.countTransactionsByCategoryId(c.getId()),
+            categoryRepository.sumAmountByCategoryId(c.getId())  // 👈 THÊM
+        ))
         .toList();
   }
 
