@@ -104,7 +104,7 @@ public class TransactionService {
     return toResponse(transactionRepository.save(transaction));
   }
 
-  // 🔄 SỬA signature: thêm categoryId parameter
+  // thêm categoryId parameter
   @Transactional(readOnly = true)
   public Page<TransactionResponse> getAll(int page, int size, String type, UUID categoryId) {
     User user = getCurrentUser();
