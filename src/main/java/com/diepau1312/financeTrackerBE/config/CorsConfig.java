@@ -21,7 +21,7 @@ public class CorsConfig {
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOrigins(Arrays.asList(allowedOrigins));
     // Các HTTP method được phép
-    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     // Các header được phép gửi kèm
     config.setAllowedHeaders(List.of("*"));
     // Cho phép gửi Authorization header
