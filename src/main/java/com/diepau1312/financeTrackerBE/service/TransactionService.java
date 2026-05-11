@@ -30,7 +30,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.diepau1312.financeTrackerBE.repository.CategoryRepository;
+import com.diepau1312.financeTrackerBE.repository.GoalRepository;
 import com.diepau1312.financeTrackerBE.entity.Category;
+import com.diepau1312.financeTrackerBE.entity.Goal;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +44,8 @@ public class TransactionService {
   private final UserRepository userRepository;
   private final UserSubscriptionRepository subscriptionRepository;
   private final CategoryRepository categoryRepository;
+  private final GoalRepository goalRepository;
+  private final GoalService goalService;
 
   // ─── Lấy user hiện tại từ Security Context ────────────────────────────────
   private User getCurrentUser() {
@@ -98,10 +102,22 @@ public class TransactionService {
         throw new AuthException("Danh mục " + category.getName() + " không khớp với loại giao dịch");
       }
     }
+
+    Goal goal = null;
+    if (request.getGoalId() != null) {
+      goal = goalRepository.findByIdAndUserId(request.getGoalId(), user.getId())
+          .orElseThrow(() -> new NotFoundException("Không tìm thấy mục tiêu"));
+    }
+
     Transaction transaction = Transaction.builder().user(user).type(request.getType()).amount(request.getAmount())
         .currency(request.getCurrency()).note(request.getNote()).transactionDate(request.getTransactionDate())
-        .source("manual").category(category).build();
-    return toResponse(transactionRepository.save(transaction));
+        .source("manual").category(category).goal(goal).build();
+
+    TransactionResponse result = toResponse(transactionRepository.save(transaction));
+    if (goal != null)
+      recalculateGoalIfNeeded(goal.getId());
+
+    return result;
   }
 
   // thêm categoryId parameter
@@ -155,7 +171,6 @@ public class TransactionService {
       throw new ForbiddenException("Không có quyền sửa giao dịch này");
     }
 
-    // 👇 THÊM MỚI: validate và set category nếu có
     Category category = null;
     if (request.getCategoryId() != null) {
       category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId())
@@ -166,28 +181,47 @@ public class TransactionService {
       }
     }
 
+    UUID oldGoalId = transaction.getGoal() != null ? transaction.getGoal().getId() : null;
+    Goal newGoal = null;
+    if (request.getGoalId() != null) {
+      newGoal = goalRepository.findByIdAndUserId(request.getGoalId(), user.getId())
+          .orElseThrow(() -> new NotFoundException("Không tìm thấy mục tiêu"));
+    }
+
     transaction.setType(request.getType());
     transaction.setAmount(request.getAmount());
     transaction.setNote(request.getNote());
     transaction.setTransactionDate(request.getTransactionDate());
     transaction.setCurrency(request.getCurrency());
-    transaction.setCategory(category); // 👈 THÊM: cho phép null nếu user bỏ category
+    transaction.setCategory(category);
+    transaction.setGoal(newGoal);
 
-    return toResponse(transactionRepository.save(transaction));
+    TransactionResponse result = toResponse(transactionRepository.save(transaction));
+
+    UUID newGoalId = newGoal != null ? newGoal.getId() : null;
+    if (oldGoalId != null)
+      recalculateGoalIfNeeded(oldGoalId);
+    if (newGoalId != null && !newGoalId.equals(oldGoalId))
+      recalculateGoalIfNeeded(newGoalId);
+
+    return result;
   }
 
   @Transactional
   @CacheEvict(value = "transaction-summary", allEntries = true)
   public void delete(UUID id) {
     User user = getCurrentUser();
+
     Transaction transaction = transactionRepository.findById(id)
         .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
+    UUID goalId = transaction.getGoal() != null ? transaction.getGoal().getId() : null;
 
     if (!transaction.getUser().getId().equals(user.getId())) {
       throw new ForbiddenException("Không có quyền xóa giao dịch này");
     }
 
     transactionRepository.delete(transaction);
+    recalculateGoalIfNeeded(goalId);
   }
 
   @Transactional(readOnly = true)
@@ -362,5 +396,16 @@ public class TransactionService {
           .percentage(Math.round(percentage * 10.0) / 10.0)
           .build();
     }).toList();
+  }
+
+  /**
+   * Tính lại current_amount của goal từ tất cả transactions.
+   * Gọi sau mỗi create / update / delete transaction có goalId.
+   */
+  private void recalculateGoalIfNeeded(UUID goalId) {
+    if (goalId == null)
+      return;
+    Long total = transactionRepository.sumAmountByGoalId(goalId);
+    goalService.recalculateProgress(goalId, total != null ? total : 0L);
   }
 }

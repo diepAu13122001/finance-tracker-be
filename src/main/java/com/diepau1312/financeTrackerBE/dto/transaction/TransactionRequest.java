@@ -34,5 +34,9 @@ public class TransactionRequest {
   @Schema(description = "Đơn vị tiền tệ", example = "VND", defaultValue = "VND")
   private String currency = "VND";
 
+  @Schema(description = "Category liên kết (optional)")
   private UUID categoryId; // optional, có thể null
+
+  @Schema(description = "Goal liên kết (optional)")
+  private UUID goalId;
 }

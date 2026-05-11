@@ -3,6 +3,7 @@ package com.diepau1312.financeTrackerBE.dto.transaction;
 import com.diepau1312.financeTrackerBE.dto.category.CategoryResponse;
 import com.diepau1312.financeTrackerBE.entity.Transaction;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
+import com.diepau1312.financeTrackerBE.dto.goal.GoalResponse;
 import lombok.Builder;
 import lombok.Data;
 
@@ -23,6 +24,7 @@ public class TransactionResponse {
   private String source;
   private LocalDateTime createdAt;
   private CategoryResponse category;
+  private GoalResponse goal;
   private LocalDateTime updatedAt;
 
   public static TransactionResponse from(Transaction t) {
@@ -38,6 +40,7 @@ public class TransactionResponse {
         .category(t.getCategory() != null
             ? CategoryResponse.from(t.getCategory())
             : null)
+        .goal(t.getGoal() != null ? GoalResponse.from(t.getGoal()) : null)
         .updatedAt(t.getUpdatedAt())
         .build();
   }

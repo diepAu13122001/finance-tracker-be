@@ -50,6 +50,10 @@ public class Transaction {
   @JoinColumn(name = "category_id") // không có nullable=false vì cho phép NULL
   private Category category;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "goal_id")
+  private Goal goal;
+  
   @CreationTimestamp
   @Column(name = "created_at", updatable = false)
   private LocalDateTime createdAt;
