@@ -23,24 +23,30 @@ public class GoalRequest {
   @NotNull(message = "Loại không được để trống")
   private GoalType type;
 
-  private GoalSubtype subtype;  // 👈 THÊM: chỉ cần khi type = DEBT
+  private GoalSubtype subtype;
 
-  // SAVINGS/INVESTMENT: mục tiêu tích lũy
-  // DEBT: hạn mức nợ (creditLimit nếu là CREDIT_CARD, hoặc tổng trả góp)
-  // NORMAL: để 0 (không cần)
-  @Min(value = 0, message = "Số tiền không âm")
+  @Min(value = 0)
   private Long targetAmount = 0L;
 
   private LocalDate deadline;
 
-  // ── DEBT CREDIT_CARD ──────────────────────────────────────────────────────
+  // ── DEBT CREDIT_CARD ───────────────────────────────────────────────────
   private Long creditLimit;
 
   @Min(1)
   @Max(28)
   private Integer billingDate;
 
-  @DecimalMin("0.0")
-  @DecimalMax("100.0")
+  // interestRate vẫn giữ để tính sau (không hiển thị trong form tạo mới)
   private BigDecimal interestRate;
+
+  // ── DEBT INSTALLMENT ───────────────────────────────────────────────────
+  @Min(1)
+  private Integer numberOfPeriods; // tổng số kỳ
+
+  @Min(0)
+  private Long monthlyPayment; // số tiền trả mỗi kỳ (đã gồm lãi)
+
+  @Min(0)
+  private Long initialAmount; // số tiền vay ban đầu
 }

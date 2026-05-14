@@ -44,7 +44,7 @@ public class Goal {
 
   @Enumerated(EnumType.STRING)
   @Column(length = 20)
-  private GoalSubtype subtype;  // 👈 THÊM: chỉ dùng cho DEBT
+  private GoalSubtype subtype; // 👈 THÊM: chỉ dùng cho DEBT
 
   @Column(name = "target_amount", nullable = false)
   @Builder.Default
@@ -56,7 +56,7 @@ public class Goal {
 
   // ── DEBT CREDIT_CARD fields ──────────────────────────────────────────────
   @Column(name = "credit_limit")
-  private Long creditLimit;    // hạn mức thẻ
+  private Long creditLimit; // hạn mức thẻ
 
   @Column(name = "billing_date")
   private Integer billingDate; // ngày đáo hạn hàng tháng (1-28)
@@ -80,9 +80,18 @@ public class Goal {
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
 
+  @Column(name = "number_of_periods")
+  private Integer numberOfPeriods; // tổng số kỳ trả góp
+
+  @Column(name = "monthly_payment")
+  private Long monthlyPayment; // tiền góp mỗi kỳ (bao gồm lãi)
+
+  @Column(name = "initial_amount")
+  private Long initialAmount; // số tiền mượn ban đầu
   // ── Enums ────────────────────────────────────────────────────────────────
+
   public enum GoalType {
-    SAVINGS, DEBT, INVESTMENT, NORMAL  // 👈 THÊM NORMAL
+    SAVINGS, DEBT, INVESTMENT, NORMAL // 👈 THÊM NORMAL
   }
 
   public enum GoalSubtype {

@@ -26,12 +26,19 @@ public class GoalResponse {
   private GoalStatus status;
   private LocalDateTime createdAt;
 
-  // Credit card fields
+  // Credit card
   private Long creditLimit;
   private Integer billingDate;
   private BigDecimal interestRate;
 
-  // Computed
+  // Installment
+  private Integer numberOfPeriods; // tổng số kỳ
+  private Long monthlyPayment; // tiền mỗi kỳ
+  private Long initialAmount; // số vay ban đầu
+  private Integer currentPeriod; // số kỳ đã trả (computed)
+  private Integer remainingPeriods; // số kỳ còn lại (computed)
+
+  // Computed chung
   private Double progressPercent;
   private Long remainingAmount;
   private boolean overLimit;
@@ -41,27 +48,43 @@ public class GoalResponse {
     long current = g.getCurrentAmount();
     long target = g.getTargetAmount();
 
-    // ── Tính toán theo type ───────────────────────────────────────────────
     double pct;
     long remaining;
     boolean over;
     long balance;
+    Integer currentPeriod = null;
+    Integer remainingPeriods = null;
 
     switch (g.getType()) {
       case NORMAL -> {
-        // Balance = current (đã được recalculate từ INCOME - EXPENSE)
         pct = 0;
-        remaining = current; // remaining = số dư hiện tại
-        over = current < 0; // âm = bội chi
+        remaining = current;
+        over = current < 0;
         balance = current;
       }
       case DEBT -> {
-        long limit = g.getCreditLimit() != null ? g.getCreditLimit()
-            : target; // fallback về target nếu không có creditLimit
-        pct = limit > 0 ? Math.min((current * 100.0) / limit, 100.0) : 0;
-        remaining = Math.max(limit - current, 0L); // số tiền còn có thể nợ
-        over = current > limit;               // vượt hạn mức
-        balance = limit - current;               // hạn mức còn lại
+        if (g.getSubtype() == GoalSubtype.INSTALLMENT
+            && g.getNumberOfPeriods() != null
+            && g.getMonthlyPayment() != null
+            && g.getMonthlyPayment() > 0) {
+          // INSTALLMENT: progress theo số kỳ đã trả
+          int paidPeriods = (int) (current / g.getMonthlyPayment());
+          currentPeriod = Math.min(paidPeriods, g.getNumberOfPeriods());
+          remainingPeriods = Math.max(g.getNumberOfPeriods() - currentPeriod, 0);
+          pct = g.getNumberOfPeriods() > 0
+              ? Math.min((currentPeriod * 100.0) / g.getNumberOfPeriods(), 100.0)
+              : 0;
+          remaining = (long) remainingPeriods * g.getMonthlyPayment();
+          over = currentPeriod > g.getNumberOfPeriods();
+          balance = remaining; // còn phải trả
+        } else {
+          // CREDIT_CARD
+          long limit = g.getCreditLimit() != null ? g.getCreditLimit() : target;
+          pct = limit > 0 ? Math.min((current * 100.0) / limit, 100.0) : 0;
+          remaining = Math.max(limit - current, 0L);
+          over = current > limit;
+          balance = limit - current;
+        }
       }
       default -> { // SAVINGS, INVESTMENT
         pct = target > 0 ? Math.min((current * 100.0) / target, 100.0) : 0;
@@ -86,6 +109,11 @@ public class GoalResponse {
         .creditLimit(g.getCreditLimit())
         .billingDate(g.getBillingDate())
         .interestRate(g.getInterestRate())
+        .numberOfPeriods(g.getNumberOfPeriods())
+        .monthlyPayment(g.getMonthlyPayment())
+        .initialAmount(g.getInitialAmount())
+        .currentPeriod(currentPeriod)
+        .remainingPeriods(remainingPeriods)
         .progressPercent(Math.round(pct * 10.0) / 10.0)
         .remainingAmount(remaining)
         .overLimit(over)
