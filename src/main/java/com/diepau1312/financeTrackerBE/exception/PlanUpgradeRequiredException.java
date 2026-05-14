@@ -5,10 +5,10 @@ import lombok.Getter;
 @Getter
 public class PlanUpgradeRequiredException extends RuntimeException {
 
-    private final String requiredPlan;
+  private final String requiredPlan;
 
-    public PlanUpgradeRequiredException(String requiredPlan) {
-        super("Tính năng này yêu cầu gói " + requiredPlan);
-        this.requiredPlan = requiredPlan;
-    }
+  public PlanUpgradeRequiredException(String requiredPlan, String message) {
+    super(message == null ? "Tính năng này yêu cầu gói " + requiredPlan : message);
+    this.requiredPlan = requiredPlan;
+  }
 }

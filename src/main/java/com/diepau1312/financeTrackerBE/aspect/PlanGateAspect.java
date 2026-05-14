@@ -39,7 +39,7 @@ public class PlanGateAspect {
 
         if (userLevel < requiredLevel) {
             log.debug("Plan gate blocked: user={}, required={}", userPlan, requiredPlan);
-            throw new PlanUpgradeRequiredException(requiredPlan);
+            throw new PlanUpgradeRequiredException(requiredPlan, null);
         }
 
         // Đủ quyền → chạy method bình thường
