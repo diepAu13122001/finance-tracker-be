@@ -44,7 +44,7 @@ public class GoalController {
   @Operation(summary = "Tạo goal mới")
   public ResponseEntity<GoalResponse> create(@Valid @RequestBody GoalRequest request) {
     String planId = SecurityUtil.getCurrentUserPlan();  // đọc từ SecurityContext
-    return ResponseEntity.ok(goalService.create(request, planId));
+    return ResponseEntity.ok(goalService.create(request));
   }
 
   @PutMapping("/{id}")

@@ -42,27 +42,46 @@ public class Goal {
   @Column(nullable = false, length = 20)
   private GoalType type;
 
+  // Chỉ dùng cho DEBT: CREDIT_CARD hoặc INSTALLMENT
   @Enumerated(EnumType.STRING)
   @Column(length = 20)
-  private GoalSubtype subtype; // 👈 THÊM: chỉ dùng cho DEBT
+  private GoalSubtype subtype;
 
+  // Goals: target_amount > 0 (bắt buộc có mục tiêu)
+  // Wallets (NORMAL): target_amount = 0 (không có mục tiêu, chỉ track số dư)
   @Column(name = "target_amount", nullable = false)
   @Builder.Default
   private Long targetAmount = 0L;
 
+  // Goals: tổng tiền đã đóng góp (>= 0)
+  // Wallets (NORMAL): số dư = SUM(INCOME) - SUM(EXPENSE), có thể âm
   @Column(name = "current_amount", nullable = false)
   @Builder.Default
   private Long currentAmount = 0L;
 
-  // ── DEBT CREDIT_CARD fields ──────────────────────────────────────────────
+  // ── DEBT / CREDIT_CARD fields ─────────────────────────────────────────────
+
   @Column(name = "credit_limit")
-  private Long creditLimit; // hạn mức thẻ
+  private Long creditLimit;          // hạn mức thẻ tín dụng
 
   @Column(name = "billing_date")
-  private Integer billingDate; // ngày đáo hạn hàng tháng (1-28)
+  private Integer billingDate;       // ngày đáo hạn hàng tháng (1-28)
 
   @Column(name = "interest_rate", precision = 5, scale = 2)
-  private BigDecimal interestRate; // lãi suất %/tháng
+  private BigDecimal interestRate;   // lãi suất %/tháng
+
+  // ── INSTALLMENT fields ────────────────────────────────────────────────────
+
+  @Column(name = "number_of_periods")
+  private Integer numberOfPeriods;   // tổng số kỳ trả góp
+
+  @Column(name = "monthly_payment")
+  private Long monthlyPayment;       // tiền góp mỗi kỳ (gốc + lãi)
+
+  @Column(name = "initial_amount")
+  private Long initialAmount;        // số tiền mượn ban đầu
+
+  // ── Common ────────────────────────────────────────────────────────────────
 
   @Column(name = "deadline")
   private LocalDate deadline;
@@ -80,25 +99,23 @@ public class Goal {
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
 
-  @Column(name = "number_of_periods")
-  private Integer numberOfPeriods; // tổng số kỳ trả góp
-
-  @Column(name = "monthly_payment")
-  private Long monthlyPayment; // tiền góp mỗi kỳ (bao gồm lãi)
-
-  @Column(name = "initial_amount")
-  private Long initialAmount; // số tiền mượn ban đầu
-  // ── Enums ────────────────────────────────────────────────────────────────
+  // ── Enums ─────────────────────────────────────────────────────────────────
 
   public enum GoalType {
-    SAVINGS, DEBT, INVESTMENT, NORMAL // 👈 THÊM NORMAL
+    SAVINGS,
+    DEBT,
+    INVESTMENT,
+    NORMAL      // Wallet thường: tiền mặt, ngân hàng, ví điện tử
   }
 
   public enum GoalSubtype {
-    CREDIT_CARD, INSTALLMENT
+    CREDIT_CARD,    // Thẻ tín dụng (có creditLimit, billingDate, interestRate)
+    INSTALLMENT     // Vay trả góp (có numberOfPeriods, monthlyPayment, initialAmount)
   }
 
   public enum GoalStatus {
-    ACTIVE, COMPLETED, CANCELLED
+    ACTIVE,
+    COMPLETED,
+    CANCELLED
   }
 }
