@@ -28,7 +28,7 @@ USER appuser
 COPY --from=builder /app/target/*.jar app.jar
 
 # Expose port
-EXPOSE 8081
+EXPOSE 8080
 
 # Biến môi trường mặc định — override bằng docker-compose
 ENV SPRING_PROFILES_ACTIVE=prod

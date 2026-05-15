@@ -223,7 +223,12 @@ public class TransactionService {
   // ─── Summary ──────────────────────────────────────────────────────────────
 
   @Transactional(readOnly = true)
-  @Cacheable(value = "transaction-summary", key = "#root.target.getCurrentUser().id + '-' + #year + '-' + #month")
+  @Cacheable(
+      value = "transaction-summary",
+      key = "T(org.springframework.security.core.context.SecurityContextHolder)" +
+          ".getContext().getAuthentication().getName()" +
+          " + '-' + #year + '-' + #month"
+  )
   public TransactionSummaryResponse getSummary(Integer year, Integer month, Integer quarter) {
     User user = getCurrentUser();
     String planId = getCurrentUserPlan(user.getId());

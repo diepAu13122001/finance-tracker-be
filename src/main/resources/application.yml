@@ -5,8 +5,8 @@ spring:
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/finance_tracker}
-    username: ${SPRING_DATASOURCE_USERNAME:ft_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:ft_password}
+    username: ${SPRING_DATASOURCE_USERNAME:prostgre}
+    password: ${SPRING_DATASOURCE_PASSWORD:1234}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -23,6 +23,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     repair-on-migrate: true
+    validate-on-migrate: false
 
   cache:
     type: simple
