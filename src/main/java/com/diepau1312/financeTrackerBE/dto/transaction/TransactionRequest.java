@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Request tạo/cập nhật giao dịch")
 public class TransactionRequest {
 
-  @Schema(description = "Loại giao dịch", example = "EXPENSE", allowableValues = {"INCOME", "EXPENSE"})
+  @Schema(description = "Loại giao dịch", example = "EXPENSE", allowableValues = {"INCOME", "EXPENSE", "TRANSFER"})
   @NotNull(message = "Loại giao dịch không được để trống")
   private TransactionType type;
 

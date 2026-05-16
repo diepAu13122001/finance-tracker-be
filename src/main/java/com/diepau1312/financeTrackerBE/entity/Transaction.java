@@ -63,6 +63,6 @@ public class Transaction {
   private LocalDateTime updatedAt;
 
   public enum TransactionType {
-    INCOME, EXPENSE
+    INCOME, EXPENSE, TRANSFER
   }
 }
