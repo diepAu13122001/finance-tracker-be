@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
+
 import java.util.UUID;
 import java.time.LocalDate;
 
@@ -14,7 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Request tạo/cập nhật giao dịch")
 public class TransactionRequest {
 
-  @Schema(description = "Loại giao dịch", example = "EXPENSE", allowableValues = { "INCOME", "EXPENSE" })
+  @Schema(description = "Loại giao dịch", example = "EXPENSE", allowableValues = {"INCOME", "EXPENSE"})
   @NotNull(message = "Loại giao dịch không được để trống")
   private TransactionType type;
 
@@ -37,6 +38,6 @@ public class TransactionRequest {
   @Schema(description = "Category liên kết (optional)")
   private UUID categoryId; // optional, có thể null
 
-  @Schema(description = "Goal liên kết (optional)")
-  private UUID goalId;
+  @Schema(description = "Wallet liên kết (optional)")
+  private UUID walletId;
 }

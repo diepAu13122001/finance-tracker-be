@@ -116,7 +116,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_user_date
 -- ────────────────────────────────────────────────────────────
 -- TRIGGER: tự cập nhật updated_at
 -- ────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION update_updated_at()
+DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
+
+CREATE FUNCTION update_updated_at()
     RETURNS TRIGGER AS
 $$
 BEGIN

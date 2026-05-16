@@ -2,21 +2,11 @@ package com.diepau1312.financeTrackerBE.service;
 
 import com.diepau1312.financeTrackerBE.dto.category.CategoryResponse;
 import com.diepau1312.financeTrackerBE.dto.transaction.*;
-import com.diepau1312.financeTrackerBE.entity.Category;
-import com.diepau1312.financeTrackerBE.entity.Goal;
-import com.diepau1312.financeTrackerBE.entity.Goal.GoalType;
-import com.diepau1312.financeTrackerBE.entity.Transaction;
+import com.diepau1312.financeTrackerBE.dto.wallet.WalletResponse;
+import com.diepau1312.financeTrackerBE.entity.*;
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
-import com.diepau1312.financeTrackerBE.entity.User;
-import com.diepau1312.financeTrackerBE.exception.AuthException;
-import com.diepau1312.financeTrackerBE.exception.ForbiddenException;
-import com.diepau1312.financeTrackerBE.exception.NotFoundException;
-import com.diepau1312.financeTrackerBE.exception.PlanUpgradeRequiredException;
-import com.diepau1312.financeTrackerBE.repository.CategoryRepository;
-import com.diepau1312.financeTrackerBE.repository.GoalRepository;
-import com.diepau1312.financeTrackerBE.repository.TransactionRepository;
-import com.diepau1312.financeTrackerBE.repository.UserRepository;
-import com.diepau1312.financeTrackerBE.repository.UserSubscriptionRepository;
+import com.diepau1312.financeTrackerBE.exception.*;
+import com.diepau1312.financeTrackerBE.repository.*;
 import com.diepau1312.financeTrackerBE.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -28,9 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -44,8 +32,8 @@ public class TransactionService {
   private final UserRepository userRepository;
   private final UserSubscriptionRepository subscriptionRepository;
   private final CategoryRepository categoryRepository;
-  private final GoalRepository goalRepository;
-  private final GoalService goalService;
+  private final WalletRepository walletRepository;
+  private final WalletService walletService;
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -56,23 +44,16 @@ public class TransactionService {
 
   private String getCurrentUserPlan(UUID userId) {
     return subscriptionRepository.findByUserId(userId)
-        .map(sub -> sub.getPlanId())
-        .orElse("FREE");
+        .map(sub -> sub.getPlanId()).orElse("FREE");
   }
 
   private void checkTransactionLimit(UUID userId, String planId) {
     if (!"FREE".equals(planId)) return;
-
-    LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
-    LocalDate endOfMonth = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
-
-    long count = transactionRepository.countByUserIdAndDateBetween(userId, startOfMonth, endOfMonth);
-    if (count >= FREE_PLAN_LIMIT) {
-      throw new PlanUpgradeRequiredException("PLUS", null);
-    }
+    LocalDate start = LocalDate.now().withDayOfMonth(1);
+    LocalDate end = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+    long count = transactionRepository.countByUserIdAndDateBetween(userId, start, end);
+    if (count >= FREE_PLAN_LIMIT) throw new PlanUpgradeRequiredException("PLUS", null);
   }
-
-  // ─── Mapper: Entity → Response DTO ───────────────────────────────────────
 
   private TransactionResponse toResponse(Transaction t) {
     return TransactionResponse.builder()
@@ -84,7 +65,9 @@ public class TransactionService {
         .transactionDate(t.getTransactionDate())
         .source(t.getSource())
         .createdAt(t.getCreatedAt())
+        .updatedAt(t.getUpdatedAt())
         .category(t.getCategory() != null ? CategoryResponse.from(t.getCategory()) : null)
+        .wallet(t.getWallet() != null ? WalletResponse.from(t.getWallet()) : null)
         .build();
   }
 
@@ -101,15 +84,14 @@ public class TransactionService {
     if (request.getCategoryId() != null) {
       category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId())
           .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
-      if (category.getType() != request.getType()) {
+      if (category.getType() != request.getType())
         throw new AuthException("Danh mục " + category.getName() + " không khớp với loại giao dịch");
-      }
     }
 
-    Goal goal = null;
-    if (request.getGoalId() != null) {
-      goal = goalRepository.findByIdAndUserId(request.getGoalId(), user.getId())
-          .orElseThrow(() -> new NotFoundException("Không tìm thấy mục tiêu"));
+    Wallet wallet = null;
+    if (request.getWalletId() != null) {
+      wallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId())
+          .orElseThrow(() -> new NotFoundException("Không tìm thấy ví"));
     }
 
     Transaction transaction = Transaction.builder()
@@ -121,11 +103,11 @@ public class TransactionService {
         .transactionDate(request.getTransactionDate())
         .source("manual")
         .category(category)
-        .goal(goal)
+        .wallet(wallet)
         .build();
 
     TransactionResponse result = toResponse(transactionRepository.save(transaction));
-    if (goal != null) recalculateGoalIfNeeded(goal.getId());
+    if (wallet != null) walletService.recalculateBalance(wallet.getId());
     return result;
   }
 
@@ -139,25 +121,14 @@ public class TransactionService {
       result = transactionRepository
           .findByUser_IdAndCategory_IdOrderByTransactionDateDesc(user.getId(), categoryId, pageable);
     } else if (type != null && !type.isBlank()) {
-      TransactionType transactionType = TransactionType.valueOf(type.toUpperCase());
+      TransactionType txType = TransactionType.valueOf(type.toUpperCase());
       result = transactionRepository
-          .findByUserIdAndTypeOrderByTransactionDateDesc(user.getId(), transactionType, pageable);
+          .findByUserIdAndTypeOrderByTransactionDateDesc(user.getId(), txType, pageable);
     } else {
       result = transactionRepository.findByUserIdOrderByTransactionDateDesc(user.getId(), pageable);
     }
 
     return result.map(this::toResponse);
-  }
-
-  @Transactional(readOnly = true)
-  public TransactionResponse getById(UUID id) {
-    User user = getCurrentUser();
-    Transaction transaction = transactionRepository.findById(id)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
-    if (!transaction.getUser().getId().equals(user.getId())) {
-      throw new ForbiddenException("Không có quyền truy cập giao dịch này");
-    }
-    return toResponse(transaction);
   }
 
   @Transactional
@@ -167,24 +138,23 @@ public class TransactionService {
     Transaction transaction = transactionRepository.findById(id)
         .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
 
-    if (!transaction.getUser().getId().equals(user.getId())) {
+    if (!transaction.getUser().getId().equals(user.getId()))
       throw new ForbiddenException("Không có quyền sửa giao dịch này");
-    }
 
     Category category = null;
     if (request.getCategoryId() != null) {
       category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId())
           .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
-      if (category.getType() != request.getType()) {
+      if (category.getType() != request.getType())
         throw new AuthException("Danh mục " + category.getName() + " không khớp với loại giao dịch");
-      }
     }
 
-    UUID oldGoalId = transaction.getGoal() != null ? transaction.getGoal().getId() : null;
-    Goal newGoal = null;
-    if (request.getGoalId() != null) {
-      newGoal = goalRepository.findByIdAndUserId(request.getGoalId(), user.getId())
-          .orElseThrow(() -> new NotFoundException("Không tìm thấy mục tiêu"));
+    // 👇 ĐỔI
+    UUID oldWalletId = transaction.getWallet() != null ? transaction.getWallet().getId() : null;
+    Wallet newWallet = null;
+    if (request.getWalletId() != null) {
+      newWallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId())
+          .orElseThrow(() -> new NotFoundException("Không tìm thấy ví"));
     }
 
     transaction.setType(request.getType());
@@ -193,13 +163,13 @@ public class TransactionService {
     transaction.setTransactionDate(request.getTransactionDate());
     transaction.setCurrency(request.getCurrency());
     transaction.setCategory(category);
-    transaction.setGoal(newGoal);
+    transaction.setWallet(newWallet);
 
     TransactionResponse result = toResponse(transactionRepository.save(transaction));
 
-    UUID newGoalId = newGoal != null ? newGoal.getId() : null;
-    if (oldGoalId != null) recalculateGoalIfNeeded(oldGoalId);
-    if (newGoalId != null && !newGoalId.equals(oldGoalId)) recalculateGoalIfNeeded(newGoalId);
+    UUID newWalletId = newWallet != null ? newWallet.getId() : null;
+    if (oldWalletId != null) walletService.recalculateBalance(oldWalletId);
+    if (newWalletId != null && !newWalletId.equals(oldWalletId)) walletService.recalculateBalance(newWalletId);
 
     return result;
   }
@@ -210,17 +180,17 @@ public class TransactionService {
     User user = getCurrentUser();
     Transaction transaction = transactionRepository.findById(id)
         .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
-    UUID goalId = transaction.getGoal() != null ? transaction.getGoal().getId() : null;
 
-    if (!transaction.getUser().getId().equals(user.getId())) {
+    if (!transaction.getUser().getId().equals(user.getId()))
       throw new ForbiddenException("Không có quyền xóa giao dịch này");
-    }
 
+    // 👇 ĐỔI
+    UUID walletId = transaction.getWallet() != null ? transaction.getWallet().getId() : null;
     transactionRepository.delete(transaction);
-    recalculateGoalIfNeeded(goalId);
+    if (walletId != null) walletService.recalculateBalance(walletId);
   }
 
-  // ─── Summary ──────────────────────────────────────────────────────────────
+  // ─── Summary & Charts — giữ nguyên logic cũ ──────────────────────────────
 
   @Transactional(readOnly = true)
   @Cacheable(
@@ -233,10 +203,9 @@ public class TransactionService {
     User user = getCurrentUser();
     String planId = getCurrentUserPlan(user.getId());
 
-    LocalDate startDate;
-    LocalDate endDate;
+    LocalDate startDate, endDate;
     LocalDate today = LocalDate.now();
-    int targetYear = (year != null) ? year : today.getYear();
+    int targetYear = year != null ? year : today.getYear();
 
     if (quarter != null) {
       int startMonth = (quarter - 1) * 3 + 1;
@@ -274,16 +243,12 @@ public class TransactionService {
         .build();
   }
 
-  // ─── Charts ───────────────────────────────────────────────────────────────
-
   public List<DailyChartResponse> getDailyChart(Integer year, Integer month,
                                                 Integer startMonth, Integer endMonth) {
     User user = getCurrentUser();
     LocalDate today = LocalDate.now();
     int targetYear = year != null ? year : today.getYear();
-
-    LocalDate startDate;
-    LocalDate endDate;
+    LocalDate startDate, endDate;
 
     if (startMonth != null && endMonth != null) {
       startDate = LocalDate.of(targetYear, startMonth, 1);
@@ -307,14 +272,10 @@ public class TransactionService {
   public List<MonthlyChartResponse> getMonthlyChart(Integer year) {
     User user = getCurrentUser();
     int targetYear = year != null ? year : LocalDate.now().getYear();
-
     List<Object[]> rows = transactionRepository.findMonthlyChartData(user.getId(), targetYear);
-
     Map<Integer, Object[]> rowMap = rows.stream()
         .collect(Collectors.toMap(row -> ((Number) row[0]).intValue(), row -> row));
-
-    String[] labels = {"Th1", "Th2", "Th3", "Th4", "Th5", "Th6",
-        "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"};
+    String[] labels = {"Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"};
 
     return IntStream.rangeClosed(1, 12).mapToObj(m -> {
       Object[] row = rowMap.get(m);
@@ -334,72 +295,29 @@ public class TransactionService {
     List<Object[]> rows;
 
     if (startMonth != null && endMonth != null) {
-      rows = transactionRepository.findCategoryBreakdownByRange(
-          user.getId(), type.name(), year, startMonth, endMonth);
+      rows = transactionRepository.findCategoryBreakdownByRange(user.getId(), type.name(), year, startMonth, endMonth);
     } else if (month != null) {
-      rows = transactionRepository.findCategoryBreakdown(
-          user.getId(), type.name(), year, month);
+      rows = transactionRepository.findCategoryBreakdown(user.getId(), type.name(), year, month);
     } else {
-      rows = transactionRepository.findCategoryBreakdownByYear(
-          user.getId(), type.name(), year);
+      rows = transactionRepository.findCategoryBreakdownByYear(user.getId(), type.name(), year);
     }
 
-    long totalAmount = rows.stream()
-        .mapToLong(r -> r[3] != null ? ((Number) r[3]).longValue() : 0L).sum();
+    long totalAmount = rows.stream().mapToLong(r -> r[3] != null ? ((Number) r[3]).longValue() : 0L).sum();
 
     return rows.stream().map(r -> {
       UUID catId = r[0] != null ? (UUID) r[0] : null;
-      String catName = (String) r[1];
-      String catColor = (String) r[2];
       long amount = r[3] != null ? ((Number) r[3]).longValue() : 0L;
       long count = r[4] != null ? ((Number) r[4]).longValue() : 0L;
       double pct = totalAmount > 0 ? (amount * 100.0) / totalAmount : 0.0;
 
       return CategoryChartItem.builder()
           .categoryId(catId)
-          .categoryName(catName != null ? catName : "Chưa phân loại")
-          .categoryColor(catColor != null ? catColor : "#888888")
+          .categoryName(r[1] != null ? (String) r[1] : "Chưa phân loại")
+          .categoryColor(r[2] != null ? (String) r[2] : "#888888")
           .totalAmount(amount)
           .transactionCount(count)
           .percentage(Math.round(pct * 10.0) / 10.0)
           .build();
     }).toList();
-  }
-
-  // ─── Goal / Wallet recalculate ────────────────────────────────────────────
-
-  /**
-   * Gọi sau mỗi create / update / delete transaction.
-   * <p>
-   * FIX LỖI 1: Phân biệt NORMAL wallet và Goal:
-   * <p>
-   * NORMAL wallet: balance = SUM(INCOME) - SUM(EXPENSE)
-   * → Dùng sumAmountByGoalIdAndType với TransactionType enum (không phải String)
-   * → Balance có thể âm (chi nhiều hơn thu)
-   * <p>
-   * Goal (SAVINGS/DEBT/INVESTMENT): SUM tất cả transactions
-   * → Dùng sumAmountByGoalId như cũ
-   */
-  private void recalculateGoalIfNeeded(UUID goalId) {
-    if (goalId == null) return;
-
-    Goal goal = goalRepository.findById(goalId).orElse(null);
-    if (goal == null) return;
-
-    long total;
-
-    if (goal.getType() == GoalType.NORMAL) {
-      // Wallet: balance = thu - chi
-      // PHẢI dùng TransactionType enum, không được dùng String "INCOME"
-      Long income = transactionRepository.sumAmountByGoalIdAndType(goalId, TransactionType.INCOME);
-      Long expense = transactionRepository.sumAmountByGoalIdAndType(goalId, TransactionType.EXPENSE);
-      total = (income != null ? income : 0L) - (expense != null ? expense : 0L);
-    } else {
-      // Goal: cộng tất cả (idempotent)
-      Long sum = transactionRepository.sumAmountByGoalId(goalId);
-      total = sum != null ? sum : 0L;
-    }
-
-    goalService.recalculateProgress(goalId, total);
   }
 }

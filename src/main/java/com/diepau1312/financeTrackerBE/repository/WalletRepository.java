@@ -1,0 +1,23 @@
+package com.diepau1312.financeTrackerBE.repository;
+
+import com.diepau1312.financeTrackerBE.entity.Wallet;
+import com.diepau1312.financeTrackerBE.entity.Wallet.WalletStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface WalletRepository extends JpaRepository<Wallet, UUID> {
+
+    List<Wallet> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    List<Wallet> findByUserIdAndStatusOrderByCreatedAtDesc(UUID userId, WalletStatus status);
+
+    Optional<Wallet> findByIdAndUserId(UUID id, UUID userId);
+
+    @Query("SELECT COUNT(w) FROM Wallet w WHERE w.user.id = :userId AND w.status = 'ACTIVE'")
+    long countActiveByUserId(@Param("userId") UUID userId);
+}

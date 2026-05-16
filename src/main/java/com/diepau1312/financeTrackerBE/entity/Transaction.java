@@ -51,9 +51,9 @@ public class Transaction {
   private Category category;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "goal_id")
-  private Goal goal;
-  
+  @JoinColumn(name = "wallet_id")
+  private Wallet wallet;
+
   @CreationTimestamp
   @Column(name = "created_at", updatable = false)
   private LocalDateTime createdAt;
