@@ -22,7 +22,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
   Page<Transaction> findByUser_IdAndCategory_IdOrderByTransactionDateDesc(UUID userId, UUID categoryId, Pageable pageable);
 
-  // 👇 ĐỔI: goal → wallet
   Page<Transaction> findByUser_IdAndWallet_IdOrderByTransactionDateDesc(UUID userId, UUID walletId, Pageable pageable);
 
   @Query("""
