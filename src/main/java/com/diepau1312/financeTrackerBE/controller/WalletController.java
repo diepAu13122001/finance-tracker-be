@@ -28,36 +28,38 @@ public class WalletController {
     private final WalletService walletService;
     private final UserRepository userRepository;
 
+    // ── Không có @RequiresPlan ──────────────────────────────────────────────
+    // Free user cũng được xem ví "Tiền mặt" mặc định của họ.
+    // Trước đây có @RequiresPlan("PLUS") → Free user bị chặn ngay tại API,
+    // React nhận 403, api.ts redirect sang /pricing, không quay lại được.
     @GetMapping
-    @RequiresPlan("PLUS")
-    @Operation(summary = "Lấy tất cả ví của user (bao gồm đã đóng)")
+    @Operation(summary = "Lấy tất cả ví (kể cả đã đóng). Mọi plan đều truy cập được.")
     public ResponseEntity<List<WalletResponse>> getAll() {
         return ResponseEntity.ok(walletService.getAll());
     }
 
     @GetMapping("/active")
-    @RequiresPlan("PLUS")
-    @Operation(summary = "Lấy ví đang ACTIVE — dùng cho WalletSelector")
+    @Operation(summary = "Lấy ví đang ACTIVE — dùng cho WalletSelector trong form tạo transaction")
     public ResponseEntity<List<WalletResponse>> getActive() {
         return ResponseEntity.ok(walletService.getActive());
     }
 
     /**
-     * Endpoint dành cho Free user: lấy tổng số ví (bao gồm đã đóng).
-     * Free user cần biết mình đang dùng bao nhiêu / 5 ví giới hạn.
+     * Trả về số ví ACTIVE hiện tại (không tính CANCELLED).
+     * Free user giới hạn 5 ví ACTIVE — ví đã đóng không tính vào giới hạn.
+     * Endpoint này không cần plan gate.
      */
     @GetMapping("/count")
-    @Operation(summary = "Tổng số ví của user — dùng cho Free user hiển thị giới hạn")
-    public ResponseEntity<Map<String, Long>> getTotalCount() {
+    @Operation(summary = "Số ví ACTIVE — hiển thị giới hạn cho Free user")
+    public ResponseEntity<Map<String, Long>> getActiveCount() {
         String email = SecurityUtil.getCurrentUserEmail();
-        UUID userId = userRepository.findByEmail(email)
-                .orElseThrow().getId();
-        long total = walletService.getTotalWalletCount(userId);
+        UUID userId = userRepository.findByEmail(email).orElseThrow().getId();
+        long total = walletService.getActiveWalletCount(userId);
         return ResponseEntity.ok(Map.of("total", total, "limit", 5L));
     }
 
     @PostMapping
-    @Operation(summary = "Tạo ví mới (Free: tối đa 5 ví tổng cộng)")
+    @Operation(summary = "Tạo ví mới (Free: tối đa 5 ví ACTIVE cùng lúc)")
     public ResponseEntity<WalletResponse> create(@Valid @RequestBody WalletRequest request) {
         return ResponseEntity.ok(walletService.create(request));
     }
@@ -72,14 +74,24 @@ public class WalletController {
     }
 
     @PatchMapping("/{id}/cancel")
-    @Operation(summary = "Đóng ví — soft close, vẫn giữ transactions cũ")
+    @Operation(summary = "Đóng ví — soft close, giải phóng 1 slot cho Free user")
     public ResponseEntity<WalletResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(walletService.cancel(id));
     }
 
+    /**
+     * Mở lại ví đã đóng.
+     * Free user: chỉ được reopen nếu số ví ACTIVE hiện tại < 5.
+     */
+    @PatchMapping("/{id}/reopen")
+    @Operation(summary = "Mở lại ví đã đóng")
+    public ResponseEntity<WalletResponse> reopen(@PathVariable UUID id) {
+        return ResponseEntity.ok(walletService.reopen(id));
+    }
+
     @DeleteMapping("/{id}")
     @RequiresPlan("PLUS")
-    @Operation(summary = "Xóa ví hoàn toàn — transactions liên quan sẽ unset wallet_id")
+    @Operation(summary = "Xóa ví hoàn toàn")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         walletService.delete(id);
         return ResponseEntity.noContent().build();

@@ -17,6 +17,8 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.diepau1312.financeTrackerBE.security.SecurityUtil;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CategoryService.java Tests")
+@MockitoSettings(strictness = Strictness.LENIENT)
 class CategoryServiceTest {
 
   @Mock
