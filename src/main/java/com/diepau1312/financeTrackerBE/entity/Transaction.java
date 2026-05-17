@@ -45,14 +45,27 @@ public class Transaction {
   @Column(nullable = false, length = 20)
   @Builder.Default
   private String source = "manual";
+  // Giá trị đặc biệt cho transfer:
+  // 'transfer_out' = tiền rời khỏi ví nguồn
+  // 'transfer_in'  = tiền đến ví đích
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "category_id") // không có nullable=false vì cho phép NULL
+  @JoinColumn(name = "category_id")
   private Category category;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "wallet_id")
   private Wallet wallet;
+
+  // ── Transfer pair fields ───────────────────────────────────────────────────
+
+  /** UUID dùng chung giữa 2 transaction của 1 lần transfer */
+  @Column(name = "transfer_pair_id")
+  private UUID transferPairId;
+
+  /** ID của ví đối diện trong transfer (target nếu đây là transfer_out, source nếu là transfer_in) */
+  @Column(name = "linked_wallet_id")
+  private UUID linkedWalletId;
 
   @CreationTimestamp
   @Column(name = "created_at", updatable = false)

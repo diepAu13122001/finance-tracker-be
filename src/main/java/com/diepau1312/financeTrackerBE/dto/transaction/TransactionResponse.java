@@ -21,11 +21,21 @@ public class TransactionResponse {
   private String currency;
   private String note;
   private LocalDate transactionDate;
-  private String source;
+  private String source; // 'manual', 'transfer_out', 'transfer_in'
   private LocalDateTime createdAt;
   private CategoryResponse category;
   private LocalDateTime updatedAt;
   private WalletResponse wallet;
+
+  // ── Transfer fields ──────────────────────────────────────────────────────
+  /** UUID chung của cặp transfer (dùng để xóa cả 2) */
+  private UUID transferPairId;
+
+  /** Tên ví nguồn (source) trong transfer — luôn có nếu là TRANSFER */
+  private String transferSourceWalletName;
+
+  /** Tên ví đích (target) trong transfer — luôn có nếu là TRANSFER */
+  private String transferTargetWalletName;
 
   public static TransactionResponse from(Transaction t) {
     return TransactionResponse.builder()
@@ -37,11 +47,12 @@ public class TransactionResponse {
         .createdAt(t.getCreatedAt())
         .transactionDate(t.getTransactionDate())
         .source(t.getSource())
-        .category(t.getCategory() != null
-            ? CategoryResponse.from(t.getCategory())
-            : null)
+        .category(t.getCategory() != null ? CategoryResponse.from(t.getCategory()) : null)
         .updatedAt(t.getUpdatedAt())
         .wallet(t.getWallet() != null ? WalletResponse.from(t.getWallet()) : null)
+        .transferPairId(t.getTransferPairId())
+        // transferSource/Target phải được set thêm từ service vì cần lookup linked
+        // wallet
         .build();
   }
 }

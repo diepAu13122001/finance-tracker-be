@@ -7,8 +7,6 @@ import com.diepau1312.financeTrackerBE.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,10 +27,7 @@ public class TransactionController {
 
   private final TransactionService transactionService;
 
-  @Operation(
-      summary = "Tạo giao dịch mới",
-      description = "Free user: tối đa 50 giao dịch/tháng. Plus/Premium: không giới hạn."
-  )
+  @Operation(summary = "Tạo giao dịch mới", description = "Free user: tối đa 50 giao dịch/tháng. Với TRANSFER cần walletId (nguồn) và targetWalletId (đích).")
   @PostMapping
   public ResponseEntity<TransactionResponse> create(
       @Valid @RequestBody TransactionRequest request) {
@@ -40,34 +35,25 @@ public class TransactionController {
         .body(transactionService.create(request));
   }
 
-  @Operation(summary = "Danh sách giao dịch", description = "Phân trang, filter theo type")
+  @Operation(summary = "Danh sách giao dịch", description = "Phân trang. Filter: type (INCOME/EXPENSE/TRANSFER), categoryId, walletId.")
   @GetMapping
   public ResponseEntity<PageResponse<TransactionResponse>> getAll(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size,
       @RequestParam(required = false) String type,
-      @RequestParam(required = false) UUID categoryId
-  ) {
+      @RequestParam(required = false) UUID categoryId,
+      @Parameter(description = "Filter theo wallet — bao gồm cả transfer_in/out của ví đó") @RequestParam(required = false) UUID walletId) {
     int clampedSize = Math.min(size, 100);
-    var result = transactionService.getAll(page, clampedSize, type, categoryId); // 👈 pass categoryId
+    var result = transactionService.getAll(page, clampedSize, type, categoryId, walletId);
     return ResponseEntity.ok(PageResponse.from(result));
   }
 
-  @Operation(
-      summary = "Tổng hợp thu chi theo kỳ",
-      description = "Hỗ trợ filter: tháng, quý, năm. Trả về giới hạn giao dịch cho Free user."
-  )
+  @Operation(summary = "Tổng hợp thu chi theo kỳ", description = "Hỗ trợ filter: tháng, quý, năm. Trả về giới hạn giao dịch cho Free user.")
   @GetMapping("/summary")
   public ResponseEntity<TransactionSummaryResponse> getSummary(
-      @Parameter(description = "Năm (mặc định: năm hiện tại)")
-      @RequestParam(required = false) Integer year,
-
-      @Parameter(description = "Tháng 1-12. Bỏ trống = toàn bộ năm")
-      @RequestParam(required = false) Integer month,
-
-      @Parameter(description = "Quý 1-4. Ưu tiên hơn month nếu cả 2 được truyền")
-      @RequestParam(required = false) Integer quarter
-  ) {
+      @Parameter(description = "Năm (mặc định: năm hiện tại)") @RequestParam(required = false) Integer year,
+      @Parameter(description = "Tháng 1-12. Bỏ trống = toàn bộ năm") @RequestParam(required = false) Integer month,
+      @Parameter(description = "Quý 1-4. Ưu tiên hơn month nếu cả 2 được truyền") @RequestParam(required = false) Integer quarter) {
     return ResponseEntity.ok(transactionService.getSummary(year, month, quarter));
   }
 
@@ -77,8 +63,7 @@ public class TransactionController {
       @RequestParam(required = false) Integer year,
       @RequestParam(required = false) Integer month,
       @RequestParam(required = false) Integer startMonth,
-      @RequestParam(required = false) Integer endMonth
-  ) {
+      @RequestParam(required = false) Integer endMonth) {
     return ResponseEntity.ok(
         transactionService.getDailyChart(year, month, startMonth, endMonth));
   }
@@ -86,9 +71,7 @@ public class TransactionController {
   @Operation(summary = "Biểu đồ xu hướng theo tháng trong năm")
   @GetMapping("/chart/monthly")
   public ResponseEntity<List<MonthlyChartResponse>> getMonthlyChart(
-      @Parameter(description = "Năm cần xem (mặc định: năm hiện tại)")
-      @RequestParam(required = false) Integer year
-  ) {
+      @Parameter(description = "Năm cần xem (mặc định: năm hiện tại)") @RequestParam(required = false) Integer year) {
     return ResponseEntity.ok(transactionService.getMonthlyChart(year));
   }
 
@@ -99,8 +82,7 @@ public class TransactionController {
       @RequestParam int year,
       @RequestParam(required = false) Integer month,
       @RequestParam(required = false) Integer startMonth,
-      @RequestParam(required = false) Integer endMonth
-  ) {
+      @RequestParam(required = false) Integer endMonth) {
     return ResponseEntity.ok(
         transactionService.getCategoryChart(type, year, month, startMonth, endMonth));
   }
@@ -108,14 +90,12 @@ public class TransactionController {
   @Operation(summary = "Cập nhật giao dịch")
   @PutMapping("/{id}")
   public ResponseEntity<TransactionResponse> update(
-      @Parameter(description = "UUID của giao dịch")
-      @PathVariable UUID id,
-      @Valid @RequestBody TransactionRequest request
-  ) {
+      @Parameter(description = "UUID của giao dịch") @PathVariable UUID id,
+      @Valid @RequestBody TransactionRequest request) {
     return ResponseEntity.ok(transactionService.update(id, request));
   }
 
-  @Operation(summary = "Xóa giao dịch")
+  @Operation(summary = "Xóa giao dịch (transfer: xóa cả cặp)")
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     transactionService.delete(id);

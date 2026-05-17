@@ -18,6 +18,13 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
 
     Optional<Wallet> findByIdAndUserId(UUID id, UUID userId);
 
+    /** Đếm ví đang ACTIVE của user */
     @Query("SELECT COUNT(w) FROM Wallet w WHERE w.user.id = :userId AND w.status = 'ACTIVE'")
     long countActiveByUserId(@Param("userId") UUID userId);
+
+    /**
+     * Đếm TẤT CẢ ví của user (bao gồm cả CANCELLED) — dùng để giới hạn Free user
+     */
+    @Query("SELECT COUNT(w) FROM Wallet w WHERE w.user.id = :userId")
+    long countAllByUserId(@Param("userId") UUID userId);
 }

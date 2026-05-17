@@ -15,11 +15,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Request tạo/cập nhật giao dịch")
 public class TransactionRequest {
 
-  @Schema(description = "Loại giao dịch", example = "EXPENSE", allowableValues = {"INCOME", "EXPENSE", "TRANSFER"})
+  @Schema(description = "Loại giao dịch", example = "EXPENSE", allowableValues = { "INCOME", "EXPENSE", "TRANSFER" })
   @NotNull(message = "Loại giao dịch không được để trống")
   private TransactionType type;
 
-  @Schema(description = "Số tiền (VND, không có số thập phân)", example = "45000")
+  @Schema(description = "Số tiền (VND)", example = "45000")
   @NotNull(message = "Số tiền không được để trống")
   @Min(value = 1, message = "Số tiền phải lớn hơn 0")
   private Long amount;
@@ -27,7 +27,7 @@ public class TransactionRequest {
   @Schema(description = "Ghi chú tùy chọn", example = "Cà phê Highlands")
   private String note;
 
-  @Schema(description = "Ngày giao dịch (không được là tương lai)", example = "2026-01-15")
+  @Schema(description = "Ngày giao dịch", example = "2026-01-15")
   @NotNull(message = "Ngày giao dịch không được để trống")
   @PastOrPresent(message = "Ngày giao dịch không được lớn hơn ngày hiện tại")
   private LocalDate transactionDate;
@@ -36,8 +36,11 @@ public class TransactionRequest {
   private String currency = "VND";
 
   @Schema(description = "Category liên kết (optional)")
-  private UUID categoryId; // optional, có thể null
+  private UUID categoryId;
 
-  @Schema(description = "Wallet liên kết (optional)")
+  @Schema(description = "Wallet nguồn. Với TRANSFER đây là ví chuyển đi.")
   private UUID walletId;
+
+  @Schema(description = "Wallet đích — CHỈ dùng khi type = TRANSFER")
+  private UUID targetWalletId;
 }
