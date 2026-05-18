@@ -122,31 +122,44 @@ class CategoryServiceTest {
   }
 
   @Test
-  @DisplayName("GetAll trả về tất cả categories của user")
+  @DisplayName("GetAll trả về tất cả root categories của user")
   void getAll_returnsUserCategories() {
-    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống")
-        .type(TransactionType.EXPENSE).build();
-    Category cat2 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Lương").type(TransactionType.INCOME)
-        .build();
+    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser)
+        .name("Ăn uống").type(TransactionType.EXPENSE).parent(null).build();
+    Category cat2 = Category.builder().id(UUID.randomUUID()).user(mockUser)
+        .name("Lương").type(TransactionType.INCOME).parent(null).build();
 
-    when(categoryRepository.findByUserIdOrderByNameAsc(USER_ID)).thenReturn(List.of(cat1, cat2));
+    // ✅ Mock đúng method mới — type = null (không filter)
+    when(categoryRepository.findRootsByUserId(USER_ID, null))
+        .thenReturn(List.of(cat1, cat2));
+
+    // Mỗi root cần mock thêm: children list + count + sum
+    when(categoryRepository.findByParentIdOrderByNameAsc(any()))
+        .thenReturn(List.of());  // không có children
     when(categoryRepository.countTransactionsByCategoryId(any())).thenReturn(0L);
+    when(categoryRepository.sumAmountByCategoryId(any())).thenReturn(0L);
 
     List<CategoryResponse> result = categoryService.getAll(null);
 
     assertThat(result).hasSize(2);
-    assertThat(result).extracting(CategoryResponse::getName).containsExactly("Ăn uống", "Lương");
+    assertThat(result).extracting(CategoryResponse::getName)
+        .containsExactly("Ăn uống", "Lương");
   }
 
   @Test
-  @DisplayName("GetAll filter theo type chỉ trả EXPENSE")
+  @DisplayName("GetAll filter theo type chỉ trả EXPENSE roots")
   void getAll_filterByType_returnsFiltered() {
-    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống")
-        .type(TransactionType.EXPENSE).build();
+    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser)
+        .name("Ăn uống").type(TransactionType.EXPENSE).parent(null).build();
 
-    when(categoryRepository.findByUserIdAndTypeOrderByNameAsc(USER_ID, TransactionType.EXPENSE))
+    // ✅ Mock đúng method mới — pass TransactionType.EXPENSE
+    when(categoryRepository.findRootsByUserId(USER_ID, TransactionType.EXPENSE))
         .thenReturn(List.of(cat1));
+
+    when(categoryRepository.findByParentIdOrderByNameAsc(any()))
+        .thenReturn(List.of());
     when(categoryRepository.countTransactionsByCategoryId(any())).thenReturn(0L);
+    when(categoryRepository.sumAmountByCategoryId(any())).thenReturn(0L);
 
     List<CategoryResponse> result = categoryService.getAll(TransactionType.EXPENSE);
 
