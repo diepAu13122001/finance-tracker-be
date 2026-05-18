@@ -76,9 +76,11 @@ class CategoryServiceTest {
   @Test
   @DisplayName("Create thành công với data hợp lệ")
   void create_validRequest_returnsResponse() {
-    when(categoryRepository.existsByUserIdAndNameAndType(USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(false);
+    when(categoryRepository.existsByUserIdAndNameAndType(USER_ID, "Ăn uống", TransactionType.EXPENSE))
+        .thenReturn(false);
 
-    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser).name("Ăn uống").icon("utensils").color("#ff748b").type(TransactionType.EXPENSE).build();
+    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser).name("Ăn uống").icon("utensils").color("#ff748b")
+        .type(TransactionType.EXPENSE).build();
     when(categoryRepository.save(any())).thenReturn(saved);
 
     CategoryResponse response = categoryService.create(createRequest);
@@ -93,7 +95,8 @@ class CategoryServiceTest {
   void create_duplicateName_throwsAuthException() {
     when(categoryRepository.existsByUserIdAndNameAndType(USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(true);
 
-    assertThatThrownBy(() -> categoryService.create(createRequest)).isInstanceOf(AuthException.class).hasMessageContaining("Ăn uống");
+    assertThatThrownBy(() -> categoryService.create(createRequest)).isInstanceOf(AuthException.class)
+        .hasMessageContaining("Ăn uống");
 
     verify(categoryRepository, never()).save(any());
   }
@@ -109,7 +112,8 @@ class CategoryServiceTest {
     req.setName("Đầu tư");
     req.setType(TransactionType.INCOME);
 
-    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser).name("Đầu tư").type(TransactionType.INCOME).build();
+    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser).name("Đầu tư").type(TransactionType.INCOME)
+        .build();
     when(categoryRepository.save(any())).thenReturn(saved);
 
     CategoryResponse response = categoryService.create(req);
@@ -120,8 +124,10 @@ class CategoryServiceTest {
   @Test
   @DisplayName("GetAll trả về tất cả categories của user")
   void getAll_returnsUserCategories() {
-    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống").type(TransactionType.EXPENSE).build();
-    Category cat2 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Lương").type(TransactionType.INCOME).build();
+    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống")
+        .type(TransactionType.EXPENSE).build();
+    Category cat2 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Lương").type(TransactionType.INCOME)
+        .build();
 
     when(categoryRepository.findByUserIdOrderByNameAsc(USER_ID)).thenReturn(List.of(cat1, cat2));
     when(categoryRepository.countTransactionsByCategoryId(any())).thenReturn(0L);
@@ -135,9 +141,11 @@ class CategoryServiceTest {
   @Test
   @DisplayName("GetAll filter theo type chỉ trả EXPENSE")
   void getAll_filterByType_returnsFiltered() {
-    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống").type(TransactionType.EXPENSE).build();
+    Category cat1 = Category.builder().id(UUID.randomUUID()).user(mockUser).name("Ăn uống")
+        .type(TransactionType.EXPENSE).build();
 
-    when(categoryRepository.findByUserIdAndTypeOrderByNameAsc(USER_ID, TransactionType.EXPENSE)).thenReturn(List.of(cat1));
+    when(categoryRepository.findByUserIdAndTypeOrderByNameAsc(USER_ID, TransactionType.EXPENSE))
+        .thenReturn(List.of(cat1));
     when(categoryRepository.countTransactionsByCategoryId(any())).thenReturn(0L);
 
     List<CategoryResponse> result = categoryService.getAll(TransactionType.EXPENSE);
@@ -152,5 +160,80 @@ class CategoryServiceTest {
     when(categoryRepository.findByIdAndUserId(CATEGORY_ID, USER_ID)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> categoryService.delete(CATEGORY_ID)).isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("Create child category thành công khi parent hợp lệ")
+  void create_childCategory_withValidParent_success() {
+    UUID parentId = UUID.randomUUID();
+    Category parent = Category.builder()
+        .id(parentId).user(mockUser).name("Sinh hoạt")
+        .type(TransactionType.EXPENSE).parent(null) // parent là root
+        .build();
+
+    when(categoryRepository.findByIdAndUserId(parentId, USER_ID))
+        .thenReturn(Optional.of(parent));
+    when(categoryRepository.existsByUserIdAndNameAndType(
+        USER_ID, "Ăn uống", TransactionType.EXPENSE)).thenReturn(false);
+
+    Category saved = Category.builder().id(CATEGORY_ID).user(mockUser)
+        .name("Ăn uống").type(TransactionType.EXPENSE).parent(parent).build();
+    when(categoryRepository.save(any())).thenReturn(saved);
+
+    CategoryRequest req = new CategoryRequest();
+    req.setName("Ăn uống");
+    req.setType(TransactionType.EXPENSE);
+    req.setParentCategoryId(parentId);
+
+    CategoryResponse result = categoryService.create(req);
+
+    assertThat(result.getName()).isEqualTo("Ăn uống");
+    assertThat(result.getParentCategoryId()).isEqualTo(parentId);
+  }
+
+  @Test
+  @DisplayName("Create child thất bại khi parent đã là child (>2 cấp)")
+  void create_grandchild_throwsException() {
+    UUID rootId = UUID.randomUUID();
+    UUID parentId = UUID.randomUUID();
+
+    Category root = Category.builder()
+        .id(rootId).name("Sinh hoạt").type(TransactionType.EXPENSE).build();
+    Category parent = Category.builder()
+        .id(parentId).user(mockUser).name("Ăn uống")
+        .type(TransactionType.EXPENSE).parent(root) // parent đã có cha → là child
+        .build();
+
+    when(categoryRepository.findByIdAndUserId(parentId, USER_ID))
+        .thenReturn(Optional.of(parent));
+    when(categoryRepository.existsByUserIdAndNameAndType(any(), any(), any()))
+        .thenReturn(false);
+
+    CategoryRequest req = new CategoryRequest();
+    req.setName("Cà phê");
+    req.setType(TransactionType.EXPENSE);
+    req.setParentCategoryId(parentId);
+
+    assertThatThrownBy(() -> categoryService.create(req))
+        .isInstanceOf(AuthException.class)
+        .hasMessageContaining("2 mức");
+  }
+
+  @Test
+  @DisplayName("Delete thất bại khi category đang có children")
+  void delete_categoryWithChildren_throwsException() {
+    Category cat = Category.builder()
+        .id(CATEGORY_ID).user(mockUser).name("Sinh hoạt")
+        .type(TransactionType.EXPENSE).build();
+
+    when(categoryRepository.findByIdAndUserId(CATEGORY_ID, USER_ID))
+        .thenReturn(Optional.of(cat));
+    when(categoryRepository.countChildrenByParentId(CATEGORY_ID)).thenReturn(3L);
+
+    assertThatThrownBy(() -> categoryService.delete(CATEGORY_ID))
+        .isInstanceOf(AuthException.class)
+        .hasMessageContaining("3");
+
+    verify(categoryRepository, never()).delete(any());
   }
 }

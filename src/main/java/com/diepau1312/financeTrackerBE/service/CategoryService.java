@@ -21,113 +21,155 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CategoryService {
 
-  private final CategoryRepository categoryRepository;
-  private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
 
-  /**
-   * Lấy tất cả categories của user hiện tại.
-   * Tham số type (optional): nếu có, chỉ lấy categories cùng type.
-   */
-  @Transactional(readOnly = true)
-  public List<CategoryResponse> getAll(TransactionType type) {
-    UUID userId = getCurrentUserId();
+    /**
+     * Lấy categories dạng cây (tree):
+     * - Mỗi root category được populate `children`
+     * - Children được sắp xếp theo tên
+     * - Optional filter theo type
+     */
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getAll(TransactionType type) {
+        UUID userId = getCurrentUserId();
 
-    List<Category> categories = (type != null)
-        ? categoryRepository.findByUserIdAndTypeOrderByNameAsc(userId, type)
-        : categoryRepository.findByUserIdOrderByNameAsc(userId);
+        // 1. Lấy tất cả root categories (parent IS NULL)
+        List<Category> roots = categoryRepository.findRootsByUserId(userId, type);
 
-    return categories.stream()
-        .map(c -> CategoryResponse.from(
-            c,
-            categoryRepository.countTransactionsByCategoryId(c.getId()),
-            categoryRepository.sumAmountByCategoryId(c.getId())  // 👈 THÊM
-        ))
-        .toList();
-  }
+        // 2. Với mỗi root, build response kèm children
+        return roots.stream().map(root -> {
+            CategoryResponse rootResp = CategoryResponse.from(
+                    root,
+                    categoryRepository.countTransactionsByCategoryId(root.getId()),
+                    categoryRepository.sumAmountByCategoryId(root.getId()));
 
-  /**
-   * Tạo category mới. Validate:
-   * - Tên không trùng với category cùng type của user
-   */
-  @Transactional
-  public CategoryResponse create(CategoryRequest request) {
-    UUID userId = getCurrentUserId();
+            // Lấy children của root này
+            List<Category> children = categoryRepository.findByParentIdOrderByNameAsc(root.getId());
+            List<CategoryResponse> childrenResp = children.stream()
+                    .map(c -> CategoryResponse.from(
+                            c,
+                            categoryRepository.countTransactionsByCategoryId(c.getId()),
+                            categoryRepository.sumAmountByCategoryId(c.getId())))
+                    .toList();
 
-    // Validate trùng tên
-    if (categoryRepository.existsByUserIdAndNameAndType(
-        userId, request.getName(), request.getType())) {
-      throw new AuthException(
-          "Bạn đã có danh mục " + request.getType() + " tên \""
-              + request.getName() + "\"");
+            rootResp.setChildren(childrenResp);
+            return rootResp;
+        }).toList();
     }
 
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy user"));
+    /**
+     * Tạo category mới. Validation:
+     * - Tên không trùng cùng type với category của user
+     * - Nếu có parent: parent phải tồn tại, cùng user, cùng type
+     * - Parent không được là child (chỉ cho phép 2 cấp)
+     */
+    @Transactional
+    public CategoryResponse create(CategoryRequest request) {
+        UUID userId = getCurrentUserId();
 
-    Category category = Category.builder()
-        .user(user)
-        .name(request.getName().trim())
-        .icon(request.getIcon() != null ? request.getIcon() : "tag")
-        .color(request.getColor() != null ? request.getColor() : "#82b01e")
-        .type(request.getType())
-        .build();
+        if (categoryRepository.existsByUserIdAndNameAndType(
+                userId, request.getName(), request.getType())) {
+            throw new AuthException("Bạn đã có danh mục " + request.getType()
+                    + " tên \"" + request.getName() + "\"");
+        }
 
-    Category saved = categoryRepository.save(category);
-    return CategoryResponse.from(saved);
-  }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy user"));
 
-  /**
-   * Update category. Validate:
-   * - Category phải thuộc về user (ownership)
-   * - Tên mới không trùng với category khác cùng type
-   */
-  @Transactional
-  public CategoryResponse update(UUID id, CategoryRequest request) {
-    UUID userId = getCurrentUserId();
+        // Validate parent nếu có
+        Category parent = null;
+        if (request.getParentCategoryId() != null) {
+            parent = categoryRepository.findByIdAndUserId(request.getParentCategoryId(), userId)
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục cha"));
 
-    Category category = categoryRepository.findByIdAndUserId(id, userId)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
+            // Rule 1: parent phải cùng type
+            if (parent.getType() != request.getType()) {
+                throw new AuthException("Danh mục cha phải cùng loại "
+                        + (request.getType() == TransactionType.INCOME ? "thu nhập" : "chi tiêu"));
+            }
 
-    // Nếu đổi tên hoặc đổi type, check trùng
-    boolean nameChanged = !category.getName().equals(request.getName());
-    boolean typeChanged = !category.getType().equals(request.getType());
+            // Rule 2: chỉ cho phép 2 cấp — parent không được là child
+            if (parent.getParent() != null) {
+                throw new AuthException("Chỉ cho phép phân cấp 2 mức. Danh mục cha '"
+                        + parent.getName() + "' đã là danh mục con.");
+            }
+        }
 
-    if ((nameChanged || typeChanged)
-        && categoryRepository.existsByUserIdAndNameAndType(
-        userId, request.getName(), request.getType())) {
-      throw new AuthException(
-          "Bạn đã có danh mục " + request.getType() + " tên \""
-              + request.getName() + "\"");
+        Category category = Category.builder()
+                .user(user)
+                .name(request.getName().trim())
+                .icon(request.getIcon() != null ? request.getIcon() : "tag")
+                .color(request.getColor() != null ? request.getColor() : "#82b01e")
+                .type(request.getType())
+                .parent(parent)
+                .build();
+
+        return CategoryResponse.from(categoryRepository.save(category));
     }
 
-    category.setName(request.getName().trim());
-    if (request.getIcon() != null) category.setIcon(request.getIcon());
-    if (request.getColor() != null) category.setColor(request.getColor());
-    category.setType(request.getType());
+    @Transactional
+    public CategoryResponse update(UUID id, CategoryRequest request) {
+        UUID userId = getCurrentUserId();
 
-    return CategoryResponse.from(category);
-  }
+        Category category = categoryRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
 
-  /**
-   * Xóa category. Transactions trỏ tới sẽ có category_id = NULL
-   * (cấu hình ON DELETE SET NULL trong migration).
-   */
-  @Transactional
-  public void delete(UUID id) {
-    UUID userId = getCurrentUserId();
+        boolean nameChanged = !category.getName().equals(request.getName());
+        boolean typeChanged = !category.getType().equals(request.getType());
 
-    Category category = categoryRepository.findByIdAndUserId(id, userId)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
+        if ((nameChanged || typeChanged)
+                && categoryRepository.existsByUserIdAndNameAndType(
+                        userId, request.getName(), request.getType())) {
+            throw new AuthException("Bạn đã có danh mục " + request.getType()
+                    + " tên \"" + request.getName() + "\"");
+        }
 
-    categoryRepository.delete(category);
-  }
+        // Nếu đổi type → không cho phép nếu category đang là parent (có con)
+        if (typeChanged) {
+            long childCount = categoryRepository.countChildrenByParentId(id);
+            if (childCount > 0) {
+                throw new AuthException("Không thể đổi loại danh mục đang có "
+                        + childCount + " danh mục con. Hãy xóa các con trước.");
+            }
+        }
 
-  // ── Helpers ──────────────────────────────────────────────────────────
+        category.setName(request.getName().trim());
+        if (request.getIcon() != null)
+            category.setIcon(request.getIcon());
+        if (request.getColor() != null)
+            category.setColor(request.getColor());
+        category.setType(request.getType());
 
-  private UUID getCurrentUserId() {
-    String email = SecurityUtil.getCurrentUserEmail();
-    return userRepository.findByEmail(email)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy user"))
-        .getId();
-  }
+        return CategoryResponse.from(category);
+    }
+
+    /**
+     * Xóa category. Rule:
+     * - Không cho xóa category đang có children
+     * - Transactions liên quan: category_id sẽ thành NULL (ON DELETE SET NULL)
+     */
+    @Transactional
+    public void delete(UUID id) {
+        UUID userId = getCurrentUserId();
+
+        Category category = categoryRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
+
+        // Check có children không
+        long childCount = categoryRepository.countChildrenByParentId(id);
+        if (childCount > 0) {
+            throw new AuthException("Danh mục này đang có " + childCount
+                    + " danh mục con. Hãy xóa các danh mục con trước.");
+        }
+
+        categoryRepository.delete(category);
+    }
+
+    private UUID getCurrentUserId() {
+        String email = SecurityUtil.getCurrentUserEmail();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy user"))
+                .getId();
+    }
 }

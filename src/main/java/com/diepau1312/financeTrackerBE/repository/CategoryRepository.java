@@ -46,4 +46,19 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
   // 👇 THÊM MỚI: tổng tiền tất cả transactions của category (all time)
   @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.category.id = :categoryId")
   Long sumAmountByCategoryId(@Param("categoryId") UUID categoryId);
+
+  // Đếm số con của 1 parent — dùng để check trước khi xóa
+  @Query("SELECT COUNT(c) FROM Category c WHERE c.parent.id = :parentId")
+  long countChildrenByParentId(@Param("parentId") UUID parentId);
+
+  // Lấy tất cả con của 1 parent (sorted theo tên)
+  List<Category> findByParentIdOrderByNameAsc(UUID parentId);
+
+  // Lấy categories root (parent IS NULL) của user, filter theo type nếu cần
+  @Query("SELECT c FROM Category c " +
+      "WHERE c.user.id = :userId AND c.parent IS NULL " +
+      "AND (:type IS NULL OR c.type = :type) " +
+      "ORDER BY c.name ASC")
+  List<Category> findRootsByUserId(@Param("userId") UUID userId,
+      @Param("type") TransactionType type);
 }

@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -18,7 +19,16 @@ public class CategoryResponse {
   private TransactionType type;
   private LocalDateTime createdAt;
   private Long transactionCount;
-  private Long totalAmount;  // 👈 THÊM MỚI
+  private Long totalAmount;
+
+  // ─── THÊM MỚI ─────────────────────────────────────────────────────────
+  // ID của parent — null nếu là root
+  private UUID parentCategoryId;
+  // Tên parent (denormalized) — tiện cho frontend hiển thị "Sinh hoạt → Ăn uống"
+  private String parentName;
+  // Danh sách children — chỉ populated khi gọi getAll (tree view)
+  // Khi mapping bình thường (vd: transaction.category) thì null
+  private List<CategoryResponse> children;
 
   public static CategoryResponse from(Category cat) {
     return CategoryResponse.builder()
@@ -28,6 +38,9 @@ public class CategoryResponse {
         .color(cat.getColor())
         .type(cat.getType())
         .createdAt(cat.getCreatedAt())
+        // parent có thể là proxy LAZY — chỉ lấy id và name
+        .parentCategoryId(cat.getParent() != null ? cat.getParent().getId() : null)
+        .parentName(cat.getParent() != null ? cat.getParent().getName() : null)
         .build();
   }
 
@@ -37,7 +50,6 @@ public class CategoryResponse {
     return res;
   }
 
-  // 👇 THÊM MỚI: overload với cả count + amount
   public static CategoryResponse from(Category cat, Long txCount, Long totalAmount) {
     CategoryResponse res = from(cat, txCount);
     res.setTotalAmount(totalAmount);
