@@ -40,24 +40,19 @@ public class TransactionService {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private User getCurrentUser() {
-    return userRepository.findByEmail(SecurityUtil.getCurrentUserEmail())
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy user"));
+    return userRepository.findByEmail(SecurityUtil.getCurrentUserEmail()).orElseThrow(() -> new NotFoundException("Không tìm thấy user"));
   }
 
   private String getCurrentUserPlan(UUID userId) {
-    return subscriptionRepository.findByUserId(userId)
-        .map(sub -> sub.getPlanId())
-        .orElse("FREE");
+    return subscriptionRepository.findByUserId(userId).map(sub -> sub.getPlanId()).orElse("FREE");
   }
 
   private void checkTransactionLimit(UUID userId, String planId) {
-    if (!"FREE".equals(planId))
-      return;
+    if (!"FREE".equals(planId)) return;
     LocalDate start = LocalDate.now().withDayOfMonth(1);
     LocalDate end = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
     long count = transactionRepository.countByUserIdAndDateBetween(userId, start, end);
-    if (count >= FREE_PLAN_LIMIT)
-      throw new PlanUpgradeRequiredException("PLUS", null);
+    if (count >= FREE_PLAN_LIMIT) throw new PlanUpgradeRequiredException("PLUS", null);
   }
 
   /**
@@ -69,9 +64,7 @@ public class TransactionService {
     String transferTargetWalletName = null;
 
     if (t.getTransferPairId() != null && t.getLinkedWalletId() != null) {
-      String linkedName = walletRepository.findById(t.getLinkedWalletId())
-          .map(Wallet::getName)
-          .orElse("Không xác định");
+      String linkedName = walletRepository.findById(t.getLinkedWalletId()).map(Wallet::getName).orElse("Không xác định");
       String thisWalletName = t.getWallet() != null ? t.getWallet().getName() : "Không xác định";
 
       if ("transfer_out".equals(t.getSource())) {
@@ -85,22 +78,7 @@ public class TransactionService {
       }
     }
 
-    return TransactionResponse.builder()
-        .id(t.getId())
-        .type(t.getType())
-        .amount(t.getAmount())
-        .currency(t.getCurrency())
-        .note(t.getNote())
-        .transactionDate(t.getTransactionDate())
-        .source(t.getSource())
-        .createdAt(t.getCreatedAt())
-        .updatedAt(t.getUpdatedAt())
-        .category(t.getCategory() != null ? CategoryResponse.from(t.getCategory()) : null)
-        .wallet(t.getWallet() != null ? WalletResponse.from(t.getWallet()) : null)
-        .transferPairId(t.getTransferPairId())
-        .transferSourceWalletName(transferSourceWalletName)
-        .transferTargetWalletName(transferTargetWalletName)
-        .build();
+    return TransactionResponse.builder().id(t.getId()).type(t.getType()).amount(t.getAmount()).currency(t.getCurrency()).note(t.getNote()).transactionDate(t.getTransactionDate()).source(t.getSource()).createdAt(t.getCreatedAt()).updatedAt(t.getUpdatedAt()).category(t.getCategory() != null ? CategoryResponse.from(t.getCategory()) : null).wallet(t.getWallet() != null ? WalletResponse.from(t.getWallet()) : null).transferPairId(t.getTransferPairId()).transferSourceWalletName(transferSourceWalletName).transferTargetWalletName(transferTargetWalletName).build();
   }
 
   /**
@@ -109,22 +87,25 @@ public class TransactionService {
    * 2. INSTALLMENT wallet: không cho phép EXPENSE (chỉ INCOME = trả góp)
    */
   private void validateWalletForTransaction(Wallet wallet, TransactionType type, Long amount) {
-    if (wallet == null)
-      return;
+    if (wallet == null) return;
+
+    // Rule 3: CREDIT wallet không thể vượt hạn mức
+    if (wallet.getType() == WalletType.DEBT && wallet.getSubtype() == WalletSubtype.CREDIT_CARD && type == TransactionType.EXPENSE) {
+      if (wallet.getCurrentAmount() + amount > wallet.getCreditLimit()) {
+        throw new AuthException("Số dư ví '" + wallet.getName() + "' không đủ. " + "Số dư hiện tại: " + (wallet.getCreditLimit() - wallet.getCurrentAmount()) + " VND.");
+      }
+    }
+
 
     // Rule 2: INSTALLMENT chỉ nhận INCOME
-    if (wallet.getType() == WalletType.DEBT
-        && wallet.getSubtype() == WalletSubtype.INSTALLMENT
-        && type == TransactionType.EXPENSE) {
-      throw new AuthException("Ví trả góp '" + wallet.getName()
-          + "' chỉ nhận giao dịch thu (thanh toán kỳ). Không thể thêm chi tiêu.");
+    if (wallet.getType() == WalletType.DEBT && wallet.getSubtype() == WalletSubtype.INSTALLMENT && type == TransactionType.EXPENSE) {
+      throw new AuthException("Ví trả góp '" + wallet.getName() + "' chỉ nhận giao dịch thu (thanh toán kỳ). Không thể thêm chi tiêu.");
     }
 
     // Rule 1: NORMAL wallet không chi tiêu vượt số dư
     if (wallet.getType() == WalletType.NORMAL && type == TransactionType.EXPENSE) {
       if (wallet.getCurrentAmount() < amount) {
-        throw new AuthException("Số dư ví '" + wallet.getName() + "' không đủ. "
-            + "Số dư hiện tại: " + wallet.getCurrentAmount() + " VND.");
+        throw new AuthException("Số dư ví '" + wallet.getName() + "' không đủ. " + "Số dư hiện tại: " + wallet.getCurrentAmount() + " VND.");
       }
     }
   }
@@ -147,8 +128,7 @@ public class TransactionService {
 
     Category category = null;
     if (request.getCategoryId() != null) {
-      category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId())
-          .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
+      category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId()).orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
       if (category.getType() != request.getType()) {
         throw new AuthException("Danh mục '" + category.getName() + "' không khớp với loại giao dịch");
       }
@@ -156,28 +136,16 @@ public class TransactionService {
 
     Wallet wallet = null;
     if (request.getWalletId() != null) {
-      wallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId())
-          .orElseThrow(() -> new NotFoundException("Không tìm thấy ví"));
+      wallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId()).orElseThrow(() -> new NotFoundException("Không tìm thấy ví"));
     }
 
     // Validate wallet rules
     validateWalletForTransaction(wallet, request.getType(), request.getAmount());
 
-    Transaction transaction = Transaction.builder()
-        .user(user)
-        .type(request.getType())
-        .amount(request.getAmount())
-        .currency(request.getCurrency() != null ? request.getCurrency() : "VND")
-        .note(request.getNote())
-        .transactionDate(request.getTransactionDate())
-        .source("manual")
-        .category(category)
-        .wallet(wallet)
-        .build();
+    Transaction transaction = Transaction.builder().user(user).type(request.getType()).amount(request.getAmount()).currency(request.getCurrency() != null ? request.getCurrency() : "VND").note(request.getNote()).transactionDate(request.getTransactionDate()).source("manual").category(category).wallet(wallet).build();
 
     TransactionResponse result = toResponse(transactionRepository.save(transaction));
-    if (wallet != null)
-      walletService.recalculateBalance(wallet.getId());
+    if (wallet != null) walletService.recalculateBalance(wallet.getId());
     return result;
   }
 
@@ -195,54 +163,28 @@ public class TransactionService {
       throw new AuthException("Ví nguồn và ví đích không thể giống nhau");
     }
 
-    Wallet sourceWallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId())
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy ví nguồn"));
-    Wallet targetWallet = walletRepository.findByIdAndUserId(request.getTargetWalletId(), user.getId())
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy ví đích"));
+    Wallet sourceWallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId()).orElseThrow(() -> new NotFoundException("Không tìm thấy ví nguồn"));
+    Wallet targetWallet = walletRepository.findByIdAndUserId(request.getTargetWalletId(), user.getId()).orElseThrow(() -> new NotFoundException("Không tìm thấy ví đích"));
 
     // Validate đủ số dư cho ví nguồn NORMAL
     if (sourceWallet.getType() == WalletType.NORMAL) {
       if (sourceWallet.getCurrentAmount() < request.getAmount()) {
-        throw new AuthException("Số dư ví '" + sourceWallet.getName() + "' không đủ để chuyển. "
-            + "Số dư: " + sourceWallet.getCurrentAmount() + " VND.");
+        throw new AuthException("Số dư ví '" + sourceWallet.getName() + "' không đủ để chuyển. " + "Số dư: " + sourceWallet.getCurrentAmount() + " VND.");
       }
     }
 
     // INSTALLMENT không thể làm nguồn chuyển (vì nó không có tiền để chuyển)
-    if (sourceWallet.getType() == WalletType.DEBT
-        && sourceWallet.getSubtype() == WalletSubtype.INSTALLMENT) {
+    if (sourceWallet.getType() == WalletType.DEBT && sourceWallet.getSubtype() == WalletSubtype.INSTALLMENT) {
       throw new AuthException("Ví trả góp không thể là ví nguồn khi chuyển tiền");
     }
 
     UUID pairId = UUID.randomUUID();
 
     // Transaction phía nguồn (tiền ra)
-    Transaction sourceTransaction = Transaction.builder()
-        .user(user)
-        .type(TransactionType.TRANSFER)
-        .amount(request.getAmount())
-        .currency(request.getCurrency() != null ? request.getCurrency() : "VND")
-        .note(request.getNote())
-        .transactionDate(request.getTransactionDate())
-        .source("transfer_out")
-        .wallet(sourceWallet)
-        .transferPairId(pairId)
-        .linkedWalletId(targetWallet.getId())
-        .build();
+    Transaction sourceTransaction = Transaction.builder().user(user).type(TransactionType.TRANSFER).amount(request.getAmount()).currency(request.getCurrency() != null ? request.getCurrency() : "VND").note(request.getNote()).transactionDate(request.getTransactionDate()).source("transfer_out").wallet(sourceWallet).transferPairId(pairId).linkedWalletId(targetWallet.getId()).build();
 
     // Transaction phía đích (tiền vào)
-    Transaction targetTransaction = Transaction.builder()
-        .user(user)
-        .type(TransactionType.TRANSFER)
-        .amount(request.getAmount())
-        .currency(request.getCurrency() != null ? request.getCurrency() : "VND")
-        .note(request.getNote())
-        .transactionDate(request.getTransactionDate())
-        .source("transfer_in")
-        .wallet(targetWallet)
-        .transferPairId(pairId)
-        .linkedWalletId(sourceWallet.getId())
-        .build();
+    Transaction targetTransaction = Transaction.builder().user(user).type(TransactionType.TRANSFER).amount(request.getAmount()).currency(request.getCurrency() != null ? request.getCurrency() : "VND").note(request.getNote()).transactionDate(request.getTransactionDate()).source("transfer_in").wallet(targetWallet).transferPairId(pairId).linkedWalletId(sourceWallet.getId()).build();
 
     transactionRepository.save(sourceTransaction);
     transactionRepository.save(targetTransaction);
@@ -261,19 +203,16 @@ public class TransactionService {
 
     // walletId filter: dùng cho WalletTransactionsDrawer — bao gồm cả transfer
     if (walletId != null) {
-      result = transactionRepository
-          .findByUser_IdAndWallet_IdOrderByTransactionDateDescCreatedAtDesc(user.getId(), walletId, pageable);
+      result = transactionRepository.findByUser_IdAndWallet_IdOrderByTransactionDateDescCreatedAtDesc(user.getId(), walletId, pageable);
     } else if (categoryId != null) {
-      result = transactionRepository
-          .findByUser_IdAndCategory_IdOrderByTransactionDateDescCreatedAtDesc(user.getId(), categoryId, pageable);
+      result = transactionRepository.findByUser_IdAndCategory_IdOrderByTransactionDateDescCreatedAtDesc(user.getId(), categoryId, pageable);
     } else if (type != null && !type.isBlank()) {
       TransactionType txType = TransactionType.valueOf(type.toUpperCase());
       if (txType == TransactionType.TRANSFER) {
         // TRANSFER: chỉ show transfer_out (1 item per transfer)
         result = transactionRepository.findTransfersByUserId(user.getId(), pageable);
       } else {
-        result = transactionRepository
-            .findByUserIdAndTypeExcludeTransferIn(user.getId(), txType, pageable);
+        result = transactionRepository.findByUserIdAndTypeExcludeTransferIn(user.getId(), txType, pageable);
       }
     } else {
       // ALL: loại bỏ transfer_in, giữ transfer_out
@@ -287,8 +226,7 @@ public class TransactionService {
   @CacheEvict(value = "transaction-summary", allEntries = true)
   public TransactionResponse update(UUID id, TransactionRequest request) {
     User user = getCurrentUser();
-    Transaction transaction = transactionRepository.findById(id)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
+    Transaction transaction = transactionRepository.findById(id).orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
 
     if (!transaction.getUser().getId().equals(user.getId())) {
       throw new ForbiddenException("Không có quyền sửa giao dịch này");
@@ -301,8 +239,7 @@ public class TransactionService {
 
     Category category = null;
     if (request.getCategoryId() != null) {
-      category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId())
-          .orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
+      category = categoryRepository.findByIdAndUserId(request.getCategoryId(), user.getId()).orElseThrow(() -> new NotFoundException("Không tìm thấy danh mục"));
       if (category.getType() != request.getType()) {
         throw new AuthException("Danh mục không khớp với loại giao dịch");
       }
@@ -311,8 +248,7 @@ public class TransactionService {
     UUID oldWalletId = transaction.getWallet() != null ? transaction.getWallet().getId() : null;
     Wallet newWallet = null;
     if (request.getWalletId() != null) {
-      newWallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId())
-          .orElseThrow(() -> new NotFoundException("Không tìm thấy ví"));
+      newWallet = walletRepository.findByIdAndUserId(request.getWalletId(), user.getId()).orElseThrow(() -> new NotFoundException("Không tìm thấy ví"));
     }
 
     // Validate wallet cho type mới
@@ -329,8 +265,7 @@ public class TransactionService {
     TransactionResponse result = toResponse(transactionRepository.save(transaction));
 
     UUID newWalletId = newWallet != null ? newWallet.getId() : null;
-    if (oldWalletId != null)
-      walletService.recalculateBalance(oldWalletId);
+    if (oldWalletId != null) walletService.recalculateBalance(oldWalletId);
     if (newWalletId != null && !newWalletId.equals(oldWalletId)) {
       walletService.recalculateBalance(newWalletId);
     }
@@ -342,8 +277,7 @@ public class TransactionService {
   @CacheEvict(value = "transaction-summary", allEntries = true)
   public void delete(UUID id) {
     User user = getCurrentUser();
-    Transaction transaction = transactionRepository.findById(id)
-        .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
+    Transaction transaction = transactionRepository.findById(id).orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
 
     if (!transaction.getUser().getId().equals(user.getId())) {
       throw new ForbiddenException("Không có quyền xóa giao dịch này");
@@ -353,28 +287,23 @@ public class TransactionService {
 
     // Nếu là transfer: xóa cả 2 transaction trong cặp
     if (transaction.getTransferPairId() != null) {
-      Optional<Transaction> paired = transactionRepository
-          .findByTransferPairIdAndIdNot(transaction.getTransferPairId(), transaction.getId());
+      Optional<Transaction> paired = transactionRepository.findByTransferPairIdAndIdNot(transaction.getTransferPairId(), transaction.getId());
 
       paired.ifPresent(pairedTx -> {
         UUID pairedWalletId = pairedTx.getWallet() != null ? pairedTx.getWallet().getId() : null;
         transactionRepository.delete(pairedTx);
-        if (pairedWalletId != null)
-          walletService.recalculateBalance(pairedWalletId);
+        if (pairedWalletId != null) walletService.recalculateBalance(pairedWalletId);
       });
     }
 
     transactionRepository.delete(transaction);
-    if (walletId != null)
-      walletService.recalculateBalance(walletId);
+    if (walletId != null) walletService.recalculateBalance(walletId);
   }
 
   // ─── Summary & Charts ─────────────────────────────────────────────────────
 
   @Transactional(readOnly = true)
-  @Cacheable(value = "transaction-summary", key = "T(org.springframework.security.core.context.SecurityContextHolder)" +
-      ".getContext().getAuthentication().getName()" +
-      " + '-' + #year + '-' + #month")
+  @Cacheable(value = "transaction-summary", key = "T(org.springframework.security.core.context.SecurityContextHolder)" + ".getContext().getAuthentication().getName()" + " + '-' + #year + '-' + #month")
   public TransactionSummaryResponse getSummary(Integer year, Integer month, Integer quarter) {
     User user = getCurrentUser();
     String planId = getCurrentUserPlan(user.getId());
@@ -387,8 +316,7 @@ public class TransactionService {
       int startMonth = (quarter - 1) * 3 + 1;
       int endMonth = startMonth + 2;
       startDate = LocalDate.of(targetYear, startMonth, 1);
-      endDate = LocalDate.of(targetYear, endMonth, 1)
-          .withDayOfMonth(LocalDate.of(targetYear, endMonth, 1).lengthOfMonth());
+      endDate = LocalDate.of(targetYear, endMonth, 1).withDayOfMonth(LocalDate.of(targetYear, endMonth, 1).lengthOfMonth());
     } else if (month != null) {
       startDate = LocalDate.of(targetYear, month, 1);
       endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
@@ -400,27 +328,15 @@ public class TransactionService {
       endDate = today.withDayOfMonth(today.lengthOfMonth());
     }
 
-    Long totalIncome = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(
-        user.getId(), TransactionType.INCOME, startDate, endDate);
-    Long totalExpense = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(
-        user.getId(), TransactionType.EXPENSE, startDate, endDate);
+    Long totalIncome = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(user.getId(), TransactionType.INCOME, startDate, endDate);
+    Long totalExpense = transactionRepository.sumAmountByUserIdAndTypeAndDateBetween(user.getId(), TransactionType.EXPENSE, startDate, endDate);
     long count = transactionRepository.countByUserIdAndDateBetween(user.getId(), startDate, endDate);
     int limit = "FREE".equals(planId) ? FREE_PLAN_LIMIT : -1;
 
-    return TransactionSummaryResponse.builder()
-        .totalIncome(totalIncome != null ? totalIncome : 0L)
-        .totalExpense(totalExpense != null ? totalExpense : 0L)
-        .balance((totalIncome != null ? totalIncome : 0L) - (totalExpense != null ? totalExpense : 0L))
-        .transactionCount(count)
-        .transactionLimit(limit)
-        .limitReached("FREE".equals(planId) && count >= FREE_PLAN_LIMIT)
-        .startDate(startDate)
-        .endDate(endDate)
-        .build();
+    return TransactionSummaryResponse.builder().totalIncome(totalIncome != null ? totalIncome : 0L).totalExpense(totalExpense != null ? totalExpense : 0L).balance((totalIncome != null ? totalIncome : 0L) - (totalExpense != null ? totalExpense : 0L)).transactionCount(count).transactionLimit(limit).limitReached("FREE".equals(planId) && count >= FREE_PLAN_LIMIT).startDate(startDate).endDate(endDate).build();
   }
 
-  public List<DailyChartResponse> getDailyChart(Integer year, Integer month,
-      Integer startMonth, Integer endMonth) {
+  public List<DailyChartResponse> getDailyChart(Integer year, Integer month, Integer startMonth, Integer endMonth) {
     User user = getCurrentUser();
     LocalDate today = LocalDate.now();
     int targetYear = year != null ? year : today.getYear();
@@ -428,45 +344,33 @@ public class TransactionService {
 
     if (startMonth != null && endMonth != null) {
       startDate = LocalDate.of(targetYear, startMonth, 1);
-      endDate = LocalDate.of(targetYear, endMonth, 1)
-          .withDayOfMonth(LocalDate.of(targetYear, endMonth, 1).lengthOfMonth());
+      endDate = LocalDate.of(targetYear, endMonth, 1).withDayOfMonth(LocalDate.of(targetYear, endMonth, 1).lengthOfMonth());
     } else {
       int targetMonth = month != null ? month : today.getMonthValue();
       startDate = LocalDate.of(targetYear, targetMonth, 1);
       endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
     }
 
-    return transactionRepository.findDailyChartData(user.getId(), startDate, endDate).stream()
-        .map(row -> DailyChartResponse.builder()
-            .date(row[0].toString())
-            .income(row[1] != null ? ((Number) row[1]).longValue() : 0L)
-            .expense(row[2] != null ? ((Number) row[2]).longValue() : 0L)
-            .build())
-        .toList();
+    return transactionRepository.findDailyChartData(user.getId(), startDate, endDate).stream().map(row -> DailyChartResponse.builder().date(row[0].toString()).income(row[1] != null ? ((Number) row[1]).longValue() : 0L).expense(row[2] != null ? ((Number) row[2]).longValue() : 0L).build()).toList();
   }
 
   public List<MonthlyChartResponse> getMonthlyChart(Integer year) {
     User user = getCurrentUser();
     int targetYear = year != null ? year : LocalDate.now().getYear();
     List<Object[]> rows = transactionRepository.findMonthlyChartData(user.getId(), targetYear);
-    Map<Integer, Object[]> rowMap = rows.stream()
-        .collect(Collectors.toMap(row -> ((Number) row[0]).intValue(), row -> row));
-    String[] labels = { "Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12" };
+    Map<Integer, Object[]> rowMap = rows.stream().collect(Collectors.toMap(row -> ((Number) row[0]).intValue(), row -> row));
+    String[] labels = {"Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"};
 
     return IntStream.rangeClosed(1, 12).mapToObj(m -> {
       Object[] row = rowMap.get(m);
       long income = row != null && row[1] != null ? ((Number) row[1]).longValue() : 0L;
       long expense = row != null && row[2] != null ? ((Number) row[2]).longValue() : 0L;
-      return MonthlyChartResponse.builder()
-          .month(m).label(labels[m - 1])
-          .income(income).expense(expense).balance(income - expense)
-          .build();
+      return MonthlyChartResponse.builder().month(m).label(labels[m - 1]).income(income).expense(expense).balance(income - expense).build();
     }).toList();
   }
 
   @Transactional(readOnly = true)
-  public List<CategoryChartItem> getCategoryChart(TransactionType type, int year,
-      Integer month, Integer startMonth, Integer endMonth) {
+  public List<CategoryChartItem> getCategoryChart(TransactionType type, int year, Integer month, Integer startMonth, Integer endMonth) {
     User user = getCurrentUser();
     List<Object[]> rows;
 
@@ -486,14 +390,7 @@ public class TransactionService {
       long count = r[4] != null ? ((Number) r[4]).longValue() : 0L;
       double pct = totalAmount > 0 ? (amount * 100.0) / totalAmount : 0.0;
 
-      return CategoryChartItem.builder()
-          .categoryId(catId)
-          .categoryName(r[1] != null ? (String) r[1] : "Chưa phân loại")
-          .categoryColor(r[2] != null ? (String) r[2] : "#888888")
-          .totalAmount(amount)
-          .transactionCount(count)
-          .percentage(Math.round(pct * 10.0) / 10.0)
-          .build();
+      return CategoryChartItem.builder().categoryId(catId).categoryName(r[1] != null ? (String) r[1] : "Chưa phân loại").categoryColor(r[2] != null ? (String) r[2] : "#888888").totalAmount(amount).transactionCount(count).percentage(Math.round(pct * 10.0) / 10.0).build();
     }).toList();
   }
 }
