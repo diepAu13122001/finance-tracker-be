@@ -9,7 +9,8 @@ public class UserProfileResponse {
   private String email;
   private String firstName;
   private String lastName;
+  private Integer monthStartDay;   // ── THÊM MỚI ──
   private String planId;
   private String planStatus;
-  private String expiresAt;   // null nếu free
+  private String expiresAt;
 }

@@ -20,11 +20,8 @@ public class UserService {
   private final PasswordEncoder passwordEncoder;
 
   private User getCurrentUser() {
-    return userRepository.findByEmail(SecurityUtil.getCurrentUserEmail()).orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
-  }
-
-  private String getCurrentUserEmail() {
-    return getCurrentUser().getEmail() ==  null ? "" : getCurrentUser().getEmail() ;
+    return userRepository.findByEmail(SecurityUtil.getCurrentUserEmail())
+        .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
   }
 
   @Transactional(readOnly = true)
@@ -32,7 +29,15 @@ public class UserService {
     User user = getCurrentUser();
     var sub = subscriptionRepository.findByUserId(user.getId()).orElse(null);
 
-    return UserProfileResponse.builder().email(user.getEmail()).firstName(user.getFirstName()).lastName(user.getLastName()).planId(sub != null ? sub.getPlanId() : "FREE").planStatus(sub != null ? sub.getStatus() : "ACTIVE").expiresAt(sub != null && sub.getExpiresAt() != null ? sub.getExpiresAt().toString() : null).build();
+    return UserProfileResponse.builder()
+        .email(user.getEmail())
+        .firstName(user.getFirstName())
+        .lastName(user.getLastName())
+        .monthStartDay(user.getMonthStartDay() != null ? user.getMonthStartDay() : 1)
+        .planId(sub != null ? sub.getPlanId() : "FREE")
+        .planStatus(sub != null ? sub.getStatus() : "ACTIVE")
+        .expiresAt(sub != null && sub.getExpiresAt() != null ? sub.getExpiresAt().toString() : null)
+        .build();
   }
 
   @Transactional
@@ -40,6 +45,16 @@ public class UserService {
     User user = getCurrentUser();
     user.setFirstName(request.getFirstName());
     user.setLastName(request.getLastName());
+
+    // ── FIX LỖI #2: cho phép update monthStartDay ──
+    if (request.getMonthStartDay() != null) {
+      int day = request.getMonthStartDay();
+      if (day < 1 || day > 28) {
+        throw new AuthException("Ngày bắt đầu tháng phải từ 1 đến 28");
+      }
+      user.setMonthStartDay(day);
+    }
+
     userRepository.save(user);
     return getProfile();
   }

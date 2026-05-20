@@ -12,9 +12,15 @@ public class TopSpendingResponse {
   private String name;
   private String icon;
   private String color;
-  private Long monthlyBudget;     // null nếu không set budget
+
+  private Long monthlyBudget;       // budget gốc user đặt
+  private Long effectiveBudget;     // = monthlyBudget + rolloverAmount (sau rollover)
+  private Long rolloverAmount;      // dư/lố từ kỳ trước (có thể âm)
+
   private Long totalSpent;
   private Long transactionCount;
-  private Double budgetProgressPercent; // null nếu không có budget
+
+  // % tính theo effectiveBudget — ĐỒNG NHẤT với CategoryCard
+  private Double budgetProgressPercent;
   private boolean overBudget;
 }

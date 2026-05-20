@@ -1,21 +1,12 @@
 package com.diepau1312.financeTrackerBE.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import com.diepau1312.financeTrackerBE.entity.Transaction.TransactionType;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -53,13 +44,16 @@ public class Category {
   @Column(name = "monthly_budget")
   private Long monthlyBudget;  // NULL = không có budget
 
+  // ── THÊM MỚI: Ngày đầu của KỲ đầu tiên áp dụng budget hiện tại ──
+  // NULL  → category chưa từng có budget
+  // Date  → kỳ trước đó (< ngày này) KHÔNG được tính rollover
+  @Column(name = "budget_started_at")
+  private LocalDate budgetStartedAt;
+
   @Column(nullable = false, length = 10)
   @Enumerated(EnumType.STRING)
   private TransactionType type;
 
-  // ── THÊM MỚI: self-reference đến category cha ──────────────────────────
-  // LAZY để tránh load cha mỗi khi load con
-  // Nullable: category root (cấp 1) không có parent
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "parent_category_id")
   private Category parent;
@@ -68,7 +62,6 @@ public class Category {
   @Builder.Default
   private LocalDateTime createdAt = LocalDateTime.now();
 
-  // Helper: kiểm tra có phải root không (không có parent)
   public boolean isRoot() {
     return parent == null;
   }
