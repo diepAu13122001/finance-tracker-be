@@ -46,7 +46,9 @@ public class SecurityConfig {
             .requestMatchers("/actuator/health").permitAll()
             // SecurityConfig.java — cho phép /actuator/health không cần auth
             .requestMatchers("/actuator/health").permitAll()
-            .requestMatchers("/swagger-ui/**").permitAll()
+            // payos
+            .requestMatchers("/api/webhooks/**").permitAll()
+            .requestMatchers("/swagger-ui**").permitAll()
 
             // Tất cả endpoint khác đều cần JWT hợp lệ
             .anyRequest().authenticated()
