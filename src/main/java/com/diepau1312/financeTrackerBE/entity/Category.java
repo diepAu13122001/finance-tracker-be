@@ -50,6 +50,9 @@ public class Category {
   @Builder.Default
   private String color = "#82b01e";
 
+  @Column(name = "monthly_budget")
+  private Long monthlyBudget;  // NULL = không có budget
+
   @Column(nullable = false, length = 10)
   @Enumerated(EnumType.STRING)
   private TransactionType type;

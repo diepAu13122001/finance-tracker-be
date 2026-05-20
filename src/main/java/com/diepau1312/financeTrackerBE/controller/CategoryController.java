@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+import com.diepau1312.financeTrackerBE.dto.category.TopSpendingResponse;
+
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor
@@ -55,5 +59,17 @@ public class CategoryController {
   public ResponseEntity<Void> delete(@PathVariable UUID id) {
     categoryService.delete(id);
     return ResponseEntity.noContent().build();  // 204
+  }
+
+  @GetMapping("/top-spending")
+  @RequiresPlan("PLUS")
+  @Operation(summary = "Top 3 categories chi tiêu cao nhất theo kỳ")
+  public ResponseEntity<List<TopSpendingResponse>> getTopSpending(
+      @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) Integer month,
+      @RequestParam(required = false) Integer quarter,
+      @RequestParam(defaultValue = "3") int limit
+  ) {
+    return ResponseEntity.ok(categoryService.getTopSpending(year, month, quarter, limit));
   }
 }

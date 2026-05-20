@@ -9,6 +9,8 @@ import lombok.Data;
 
 import java.util.UUID;
 
+import jakarta.validation.constraints.Min;
+
 @Data
 public class CategoryRequest {
 
@@ -28,4 +30,7 @@ public class CategoryRequest {
   // nullable — nếu null thì là root category (cấp 1)
   // Nếu không null thì là child, parent_id trỏ về root
   private UUID parentCategoryId;
+
+  @Min(value = 0, message = "Ngân sách phải >= 0")
+  private Long monthlyBudget;  // optional
 }

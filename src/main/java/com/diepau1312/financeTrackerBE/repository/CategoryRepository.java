@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,5 +61,46 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
       "AND (:type IS NULL OR c.type = :type) " +
       "ORDER BY c.name ASC")
   List<Category> findRootsByUserId(@Param("userId") UUID userId,
-      @Param("type") TransactionType type);
+                                   @Param("type") TransactionType type);
+
+  /**
+   * Tổng EXPENSE của category trong 1 tháng.
+   * Loại transfer (source != 'manual') vì transfer không phải chi tiêu thực.
+   */
+  @Query("""
+          SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+          WHERE t.category.id = :categoryId
+            AND t.type = 'EXPENSE'
+            AND t.source = 'manual'
+            AND EXTRACT(YEAR FROM t.transactionDate) = :year
+            AND EXTRACT(MONTH FROM t.transactionDate) = :month
+      """)
+  Long sumExpenseByMonth(@Param("categoryId") UUID categoryId,
+                         @Param("year") int year,
+                         @Param("month") int month);
+
+  /**
+   * Top N categories chi tiêu cao nhất trong khoảng thời gian.
+   * Dùng cho Dashboard widget "Top chi tiêu".
+   * Native query để xử lý EXTRACT() linh hoạt với cả month/quarter/year.
+   */
+  @Query(value = """
+          SELECT c.id, c.name, c.icon, c.color, c.monthly_budget,
+                 SUM(t.amount) AS spent,
+                 COUNT(t.id) AS tx_count
+          FROM transactions t
+          JOIN categories c ON t.category_id = c.id
+          WHERE t.user_id = CAST(:userId AS uuid)
+            AND t.type = 'EXPENSE'
+            AND t.source = 'manual'
+            AND t.transaction_date >= :startDate
+            AND t.transaction_date <= :endDate
+          GROUP BY c.id, c.name, c.icon, c.color, c.monthly_budget
+          ORDER BY spent DESC
+          LIMIT :limit
+      """, nativeQuery = true)
+  List<Object[]> findTopSpendingCategories(@Param("userId") UUID userId,
+                                           @Param("startDate") LocalDate startDate,
+                                           @Param("endDate") LocalDate endDate,
+                                           @Param("limit") int limit);
 }

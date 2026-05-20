@@ -20,6 +20,13 @@ public class CategoryResponse {
   private LocalDateTime createdAt;
   private Long transactionCount;
   private Long totalAmount;
+  private Long monthlyBudget;             // budget user đặt (base)
+  private Long effectiveBudget;           // budget sau khi rollover từ tháng trước
+  private Long currentMonthSpent;         // đã chi tháng này
+  private Long rolloverAmount;            // dư/thiếu từ tháng trước (+/-)
+  private Double budgetProgressPercent;   // spent / effectiveBudget * 100
+  private boolean overBudget;             // spent > effectiveBudget
+  private boolean warningBudget;          // progress >= 80%
 
   // ─── THÊM MỚI ─────────────────────────────────────────────────────────
   // ID của parent — null nếu là root
@@ -38,10 +45,45 @@ public class CategoryResponse {
         .color(cat.getColor())
         .type(cat.getType())
         .createdAt(cat.getCreatedAt())
-        // parent có thể là proxy LAZY — chỉ lấy id và name
         .parentCategoryId(cat.getParent() != null ? cat.getParent().getId() : null)
         .parentName(cat.getParent() != null ? cat.getParent().getName() : null)
+        .monthlyBudget(cat.getMonthlyBudget())
         .build();
+  }
+
+  /**
+   * Build response kèm budget progress đã tính rollover.
+   *
+   * @param rolloverAmount:    dư từ tháng trước (>0) hoặc nợ (<0)
+   * @param currentMonthSpent: tổng chi tháng hiện tại
+   */
+  public static CategoryResponse withBudgetProgress(
+      Category cat, Long txCount, Long totalAmount,
+      Long currentMonthSpent, Long rolloverAmount
+  ) {
+    CategoryResponse res = from(cat, txCount, totalAmount);
+    res.setCurrentMonthSpent(currentMonthSpent != null ? currentMonthSpent : 0L);
+    res.setRolloverAmount(rolloverAmount != null ? rolloverAmount : 0L);
+
+    if (cat.getMonthlyBudget() != null && cat.getMonthlyBudget() > 0) {
+      // Effective budget = base + rollover (có thể âm nếu tháng trước tiêu lố quá nhiều)
+      long effective = cat.getMonthlyBudget() + (rolloverAmount != null ? rolloverAmount : 0L);
+      res.setEffectiveBudget(Math.max(0L, effective)); // không cho âm hiển thị
+
+      // Tính % so với effective budget
+      if (effective > 0) {
+        double pct = (res.getCurrentMonthSpent() * 100.0) / effective;
+        res.setBudgetProgressPercent(Math.round(pct * 10.0) / 10.0);
+        res.setOverBudget(res.getCurrentMonthSpent() > effective);
+        res.setWarningBudget(pct >= 80.0);
+      } else {
+        // Effective = 0 → tháng này không còn budget
+        res.setBudgetProgressPercent(100.0);
+        res.setOverBudget(res.getCurrentMonthSpent() > 0);
+        res.setWarningBudget(true);
+      }
+    }
+    return res;
   }
 
   public static CategoryResponse from(Category cat, Long txCount) {
