@@ -23,9 +23,11 @@ public class WebhookController {
 
   @PostMapping("/payos")
   public ResponseEntity<?> handlePayOSWebhook(@RequestBody Webhook webhook) {
+    log.info("=== WEBHOOK RECEIVED ===");  // ← thêm
+    log.info("Raw webhook: {}", webhook);   // ← thêm
     try {
-      // ✅ API mới
       WebhookData data = payOS.webhooks().verify(webhook);
+      log.info("Verified: code={}, desc={}, orderCode={}", data.getCode(), data.getDesc(), data.getOrderCode());
 
       String orderCode = String.valueOf(data.getOrderCode());
       log.info("PayOS webhook: orderCode={}, code={}, desc={}", orderCode, data.getCode(), data.getDesc());

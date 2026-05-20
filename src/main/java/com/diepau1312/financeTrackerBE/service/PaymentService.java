@@ -165,7 +165,7 @@ public class PaymentService {
     // Nếu chưa có hoặc đã hết → tính từ hôm nay
     LocalDateTime now = LocalDateTime.now();
     LocalDateTime baseDate = (sub.getExpiresAt() != null && sub.getExpiresAt().isAfter(now)) ? sub.getExpiresAt() : now;
-    sub.setExpiresAt(baseDate.plusYears(1));
+    sub.setExpiresAt(baseDate.plusMonths(1));
 
     subscriptionRepository.save(sub);
     log.info("Activated {} for user {} until {}", newPlan.getId(), user.getEmail(), sub.getExpiresAt());
