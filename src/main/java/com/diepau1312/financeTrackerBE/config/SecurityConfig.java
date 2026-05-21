@@ -32,9 +32,7 @@ public class SecurityConfig {
         .csrf(AbstractHttpConfigurer::disable)
 
         // Không dùng session — mỗi request tự xác thực bằng JWT
-        .sessionManagement(session ->
-            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-        )
+        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
         // Cấu hình quyền truy cập từng endpoint
         .authorizeHttpRequests(auth -> auth
@@ -48,11 +46,9 @@ public class SecurityConfig {
             .requestMatchers("/actuator/health").permitAll()
             // payos
             .requestMatchers("/api/webhooks/**").permitAll()
-            .requestMatchers("/swagger-ui**").permitAll()
 
             // Tất cả endpoint khác đều cần JWT hợp lệ
-            .anyRequest().authenticated()
-        )
+            .anyRequest().authenticated())
 
         // Thêm JWT filter chạy trước filter mặc định của Spring
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -60,7 +56,8 @@ public class SecurityConfig {
     return http.build();
   }
 
-  // BCrypt để hash password — cost factor 12 là cân bằng tốt giữa bảo mật và performance
+  // BCrypt để hash password — cost factor 12 là cân bằng tốt giữa bảo mật và
+  // performance
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder(12);
