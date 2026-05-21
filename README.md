@@ -19,6 +19,8 @@ hỗ trợ hệ thống 3 gói (Free/Plus/Premium).
 | PostgreSQL 16             | Database        | JSONB, UUID native, partial index             |
 | Flyway                    | DB Migration    | Version control cho schema                    |
 | Spring Cache              | In-memory cache | Giảm DB queries cho summary                   |
+| WebClient (Reactive)      | HTTP client     | Non-blocking, dùng cho Gemini API             |
+| PayOS SDK                 | Payment         | Tích hợp thanh toán tiền Việt               |
 
 ---
 
@@ -43,23 +45,40 @@ Request → JwtAuthFilter (set PLAN_FREE/PLUS/PREMIUM authority)
         → GlobalExceptionHandler → 403 response
 ```
 
-### JWT Claims Chứa planId
+### AI Analyze-Spending Flow (Ngày 97)
 
 ```
-Payload: { email, planId, iat, exp }
-→ Không query DB mỗi request để check plan
-→ JwtAuthFilter đọc planId → set vào SecurityContext
-→ PlanGateAspect đọc từ SecurityContext
-→ CategoryService, GoalService đọc userId từ SecurityContext
+Tại sao không gọi Gemini trực tiếp từ Frontend:
+  - Backend tổng hợp data (summary + category chart) trước khi gửi AI
+  - GeminiService chỉ làm 1 việc: call Gemini API (single responsibility)
+  - Gemini key vẫn do client cung cấp, không lưu server
+
+Flow:
+POST /api/ai/analyze-spending { year, month, geminiApiKey }
+  → AIController: lấy summary + top 5 categories từ TransactionService
+  → GeminiService.analyzeSpending(income, expense, categories, apiKey)
+  → Build prompt có số liệu cụ thể → call Gemini → parse JSON
+  → AIAnalyzeResponse { overview, topInsight, suggestion, warnings }
+```
+
+### Recurring Transactions (Ngày 98)
+
+```
+Thiết kế: Template pattern
+  - recurring_transactions lưu template (amount, frequency, wallet...)
+  - execute() tạo transaction thực + advance nextExecutionDate
+  - Dùng TransactionService.create() để đi qua toàn bộ validation (plan limit, wallet...)
+
+nextExecutionDate calculation:
+  DAILY   → +1 day
+  WEEKLY  → +7 days (plusWeeks(1))
+  MONTHLY → +1 month (auto handle month overflow: Jan 31 → Feb 28)
+  YEARLY  → +1 year
 ```
 
 ### Goal Progress: Recalculate vs Increment
 
 ```
-Tại sao KHÔNG dùng increment:
-  transaction.create → goal.current += amount  ← race condition
-  transaction.delete → goal.current -= amount  ← inconsistent nếu fail
-
 Tại sao DÙNG recalculate:
   SELECT SUM(amount) FROM transactions WHERE goal_id = ?
   goal.current = kết quả                       ← idempotent, luôn đúng
@@ -77,10 +96,12 @@ users ──┬── user_subscriptions ──── subscription_plans (FREE/P
         ├── categories (Plus)
         │     └── transactions (category_id, nullable)
         │
-        ├── goals (Plus)
-        │     └── transactions (goal_id, nullable)
+        ├── wallets
+        │     └── transactions (wallet_id, nullable)
         │
         ├── transactions
+        │
+        ├── recurring_transactions (Plus) ── ngày 98
         │
         └── payment_history
 ```
@@ -91,6 +112,8 @@ users ──┬── user_subscriptions ──── subscription_plans (FREE/P
 - V3: Performance indexes
 - V4: Categories system (Plus)
 - V5: Goals system (Plus)
+- V6-V16: Wallet, transfer, budget, payment features
+- **V17: Recurring transactions (Plus) — ngày 98**
 
 ---
 
@@ -102,7 +125,7 @@ Auth (public):
   POST /api/auth/login
 
 Transactions (JWT):
-  GET    /api/transactions?page&size&type&categoryId
+  GET    /api/transactions?page&size&type&categoryId&walletId
   POST   /api/transactions
   PUT    /api/transactions/:id
   DELETE /api/transactions/:id
@@ -116,14 +139,34 @@ Categories (Plus):
   POST   /api/categories
   PUT    /api/categories/:id
   DELETE /api/categories/:id
+  GET    /api/categories/top-spending?year&month (Plus)
 
-Goals (Plus):
-  GET    /api/goals
-  GET    /api/goals/active
-  POST   /api/goals
-  PUT    /api/goals/:id
-  PATCH  /api/goals/:id/cancel
-  DELETE /api/goals/:id
+Wallets (JWT):
+  GET    /api/wallets
+  POST   /api/wallets
+  PUT    /api/wallets/:id
+  DELETE /api/wallets/:id
+  POST   /api/wallets/:id/reopen
+  GET    /api/wallets/count
+
+Recurring Transactions (Plus) — ngày 98:
+  GET    /api/recurring
+  POST   /api/recurring
+  PUT    /api/recurring/:id
+  DELETE /api/recurring/:id
+  POST   /api/recurring/:id/execute
+
+AI (Plus) — Gemini key do client cung cấp:
+  POST /api/ai/parse-transaction   — ngày 96
+  POST /api/ai/analyze-spending    — ngày 97
+
+Payment (JWT):
+  POST /api/payment/create-link
+  GET  /api/payment/history
+  POST /api/payment/webhook (public, PayOS callback)
+
+Export (JWT):
+  GET /api/export/excel?year&month
 
 Health (public):
   GET /actuator/health
@@ -165,10 +208,12 @@ GRANT ALL ON SCHEMA public TO ft_user;
 ./mvnw test
 
 # Test files:
-# AuthServiceTest       — 8 cases
-# SubscriptionServiceTest — 7 cases
-# CategoryServiceTest   — 6 cases
-# GoalServiceTest       — 6 cases
+# AuthServiceTest         — 8 cases
+# CategoryServiceTest     — 6 cases
+# WalletServiceTest       — 8 cases
+# GeminiServiceTest       — 2 cases
+# RecurringServiceTest    — 6 cases  (ngày 100)
+# PaymentServiceTest      — 5 cases  (ngày 100)
 ```
 
 ---
@@ -184,6 +229,13 @@ SPRING_DATASOURCE_PASSWORD=...
 APP_JWT_SECRET=...
 APP_CORS_ORIGINS=https://your-frontend.vercel.app
 SPRING_PROFILES_ACTIVE=prod
+
+# PayOS (ngày 94-95)
+PAYOS_CLIENT_ID=...
+PAYOS_API_KEY=...
+PAYOS_CHECKSUM_KEY=...
+PAYOS_RETURN_URL=https://your-frontend.vercel.app/payment/success
+PAYOS_CANCEL_URL=https://your-frontend.vercel.app/payment/cancel
 ```
 
 ---
