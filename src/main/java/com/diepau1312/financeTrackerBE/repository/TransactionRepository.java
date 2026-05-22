@@ -17,47 +17,72 @@ import java.util.UUID;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
 
-  // ── List queries (exclude transfer_in để tránh double-count trong main list) ─
+  // ── Existing queries (giữ nguyên) ─────────────────────────────────────────
+
   Page<Transaction> findByUserIdOrderByTransactionDateDesc(UUID userId, Pageable pageable);
 
   Page<Transaction> findByUserIdAndTypeOrderByTransactionDateDesc(UUID userId, TransactionType type, Pageable pageable);
 
-  Page<Transaction> findByUser_IdAndCategory_IdOrderByTransactionDateDesc(UUID userId, UUID categoryId, Pageable pageable);
-
-  Page<Transaction> findByUser_IdAndWallet_IdOrderByTransactionDateDesc(UUID userId, UUID walletId, Pageable pageable);
-
-  /**
-   * Lấy tất cả transactions của user, loại bỏ transfer_in (chỉ hiện transfer_out)
-   */
   @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId AND t.source != 'transfer_in' ORDER BY t.transactionDate DESC, t.createdAt DESC")
   Page<Transaction> findByUserIdExcludeTransferIn(@Param("userId") UUID userId, Pageable pageable);
 
-  /**
-   * Filter theo type, loại bỏ transfer_in
-   */
   @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId AND t.type = :type AND t.source != 'transfer_in' ORDER BY t.transactionDate DESC, t.createdAt DESC")
   Page<Transaction> findByUserIdAndTypeExcludeTransferIn(@Param("userId") UUID userId,
                                                          @Param("type") TransactionType type, Pageable pageable);
 
-  /**
-   * Lấy tất cả TRANSFER (chỉ transfer_out — 1 item per transfer)
-   */
   @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId AND t.source = 'transfer_out' ORDER BY t.transactionDate DESC, t.createdAt DESC")
   Page<Transaction> findTransfersByUserId(@Param("userId") UUID userId, Pageable pageable);
 
-  /**
-   * Filter theo category
-   */
-  Page<Transaction> findByUser_IdAndCategory_IdOrderByTransactionDateDescCreatedAtDesc(UUID userId, UUID categoryId,
-                                                                                       Pageable pageable);
+  Page<Transaction> findByUser_IdAndCategory_IdOrderByTransactionDateDescCreatedAtDesc(UUID userId, UUID categoryId, Pageable pageable);
+
+  Page<Transaction> findByUser_IdAndWallet_IdOrderByTransactionDateDescCreatedAtDesc(UUID userId, UUID walletId, Pageable pageable);
+
+  // ── THÊM MỚI: Text search ─────────────────────────────────────────────────
 
   /**
-   * Filter theo wallet — BAO GỒM cả transfer_in/out (dùng cho wallet drawer)
+   * Tìm kiếm theo text trong note hoặc tên ví.
+   * <p>
+   * Giải thích JPQL:
+   * - LOWER() cả 2 vế → case-insensitive search
+   * - CONCAT('%', :search, '%') → SQL LIKE '%từ_tìm%'
+   * - source != 'transfer_in' → ẩn bản sao transfer, chỉ hiện transfer_out
+   * - Tìm cả wallet.name vì user hay nhớ "mua sắm bằng thẻ Visa"
    */
-  Page<Transaction> findByUser_IdAndWallet_IdOrderByTransactionDateDescCreatedAtDesc(UUID userId, UUID walletId,
-                                                                                     Pageable pageable);
+  @Query("""
+      SELECT t FROM Transaction t
+      WHERE t.user.id = :userId
+        AND t.source != 'transfer_in'
+        AND (LOWER(t.note) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR (t.wallet IS NOT NULL
+                 AND LOWER(t.wallet.name) LIKE LOWER(CONCAT('%', :search, '%'))))
+      ORDER BY t.transactionDate DESC, t.createdAt DESC
+      """)
+  Page<Transaction> searchByText(
+      @Param("userId") UUID userId,
+      @Param("search") String search,
+      Pageable pageable);
 
-  // ── Count queries ──────────────────────────────────────────────────────────
+  /**
+   * Search + filter type kết hợp.
+   * Dùng khi user đang ở tab INCOME/EXPENSE rồi gõ tìm kiếm.
+   */
+  @Query("""
+      SELECT t FROM Transaction t
+      WHERE t.user.id = :userId
+        AND t.type = :type
+        AND t.source != 'transfer_in'
+        AND (LOWER(t.note) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR (t.wallet IS NOT NULL
+                 AND LOWER(t.wallet.name) LIKE LOWER(CONCAT('%', :search, '%'))))
+      ORDER BY t.transactionDate DESC, t.createdAt DESC
+      """)
+  Page<Transaction> searchByTextAndType(
+      @Param("userId") UUID userId,
+      @Param("search") String search,
+      @Param("type") TransactionType type,
+      Pageable pageable);
+
+  // ── Count & Sum queries ────────────────────────────────────────────────────
 
   @Query("""
       SELECT COUNT(t) FROM Transaction t
@@ -69,8 +94,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
   long countByUserIdAndDateBetween(@Param("userId") UUID userId,
                                    @Param("startDate") LocalDate startDate,
                                    @Param("endDate") LocalDate endDate);
-
-  // ── Sum queries for balance ────────────────────────────────────────────────
 
   @Query("""
       SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
@@ -84,23 +107,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
                                               @Param("startDate") LocalDate startDate,
                                               @Param("endDate") LocalDate endDate);
 
-  /**
-   * Tính số tiền theo type cho wallet (INCOME/EXPENSE)
-   */
   @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.wallet.id = :walletId AND t.type = :type")
   Long sumAmountByWalletIdAndType(@Param("walletId") UUID walletId, @Param("type") TransactionType type);
 
-  /**
-   * Tính số tiền transfer_out hoặc transfer_in cho wallet
-   */
   @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.wallet.id = :walletId AND t.source = :source")
   Long sumTransferByWalletIdAndSource(@Param("walletId") UUID walletId, @Param("source") String source);
 
-  // ── Transfer pair queries ─────────────────────────────────────────────────
+  // ── Transfer pair ─────────────────────────────────────────────────────────
 
-  /**
-   * Tìm transaction đối của một transfer (cùng pair, khác id)
-   */
   Optional<Transaction> findByTransferPairIdAndIdNot(UUID transferPairId, UUID id);
 
   // ── Chart queries ─────────────────────────────────────────────────────────
@@ -162,9 +176,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
       ORDER BY total_amount DESC
       """, nativeQuery = true)
   List<Object[]> findCategoryBreakdownByRange(@Param("userId") UUID userId, @Param("type") String type,
-                                              @Param("year") int year,
-                                              @Param("startMonth") int startMonth,
-                                              @Param("endMonth") int endMonth);
+                                              @Param("year") int year, @Param("startMonth") int startMonth, @Param("endMonth") int endMonth);
 
   @Query(value = """
       SELECT c.id, c.name, c.color,
@@ -179,5 +191,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
       """, nativeQuery = true)
   List<Object[]> findCategoryBreakdownByYear(@Param("userId") UUID userId, @Param("type") String type,
                                              @Param("year") int year);
-}
 
+  // ── Export query — filter theo date range ─────────────────────────────────
+
+  /**
+   * Lấy transactions trong khoảng ngày cho export Excel/PDF.
+   * <p>
+   * Tại sao cần query riêng thay vì dùng findByUserIdOrderByTransactionDateDesc?
+   * → Query cũ không có filter ngày → luôn trả về toàn bộ bất kể year/month truyền vào
+   * → Query này filter đúng [startDate, endDate] → export đúng kỳ user chọn
+   * <p>
+   * source != 'transfer_in': ẩn bản sao transfer, tránh double-count số tiền
+   */
+  @Query("""
+      SELECT t FROM Transaction t
+      WHERE t.user.id = :userId
+        AND t.transactionDate >= :startDate
+        AND t.transactionDate <= :endDate
+        AND t.source != 'transfer_in'
+      ORDER BY t.transactionDate DESC, t.createdAt DESC
+      """)
+  Page<Transaction> findByUserIdAndDateBetween(
+      @Param("userId") UUID userId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate,
+      Pageable pageable);
+}

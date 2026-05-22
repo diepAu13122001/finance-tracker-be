@@ -195,27 +195,63 @@ public class TransactionService {
     return toResponse(sourceTransaction);
   }
 
+  /**
+   * Lấy danh sách transactions có phân trang, filter và search.
+   * <p>
+   * Luồng xử lý (theo độ ưu tiên):
+   * 1. walletId có → trả về TẤT CẢ transactions của ví đó (kể cả transfer_in)
+   * Dùng cho WalletTransactionsDrawer — user muốn xem lịch sử 1 ví cụ thể
+   * <p>
+   * 2. categoryId có → filter theo category
+   * <p>
+   * 3. search có (text search):
+   * - Kết hợp với type nếu type != null
+   * - Search trong note và tên ví
+   * <p>
+   * 4. type có (không có search) → filter theo loại
+   * <p>
+   * 5. Mặc định → trả về tất cả, ẩn transfer_in
+   *
+   * @param search null hoặc rỗng → bỏ qua, không search
+   */
   @Transactional(readOnly = true)
-  public Page<TransactionResponse> getAll(int page, int size, String type, UUID categoryId, UUID walletId) {
+  public Page<TransactionResponse> getAll(int page, int size, String type, UUID categoryId, UUID walletId, String search) {
     User user = getCurrentUser();
     Pageable pageable = PageRequest.of(page, size);
     Page<Transaction> result;
 
-    // walletId filter: dùng cho WalletTransactionsDrawer — bao gồm cả transfer
+    // Ưu tiên 1: filter theo wallet (dùng cho drawer, bao gồm transfer_in)
     if (walletId != null) {
       result = transactionRepository.findByUser_IdAndWallet_IdOrderByTransactionDateDescCreatedAtDesc(user.getId(), walletId, pageable);
+
+      // Ưu tiên 2: filter theo category
     } else if (categoryId != null) {
       result = transactionRepository.findByUser_IdAndCategory_IdOrderByTransactionDateDescCreatedAtDesc(user.getId(), categoryId, pageable);
+
+      // Ưu tiên 3: search text — có thể kết hợp với type filter
+    } else if (search != null && !search.isBlank()) {
+      String trimmedSearch = search.trim();
+
+      if (type != null && !type.isBlank()) {
+        TransactionType txType = TransactionType.valueOf(type.toUpperCase());
+        // Search trong tab INCOME hoặc EXPENSE
+        result = transactionRepository.searchByTextAndType(user.getId(), trimmedSearch, txType, pageable);
+      } else {
+        // Search toàn bộ (tab "Tất cả")
+        result = transactionRepository.searchByText(user.getId(), trimmedSearch, pageable);
+      }
+
+      // Ưu tiên 4: filter theo type (không search)
     } else if (type != null && !type.isBlank()) {
       TransactionType txType = TransactionType.valueOf(type.toUpperCase());
       if (txType == TransactionType.TRANSFER) {
-        // TRANSFER: chỉ show transfer_out (1 item per transfer)
         result = transactionRepository.findTransfersByUserId(user.getId(), pageable);
       } else {
         result = transactionRepository.findByUserIdAndTypeExcludeTransferIn(user.getId(), txType, pageable);
       }
+
+      // Mặc định: tất cả, ẩn transfer_in
     } else {
-      // ALL: loại bỏ transfer_in, giữ transfer_out
       result = transactionRepository.findByUserIdExcludeTransferIn(user.getId(), pageable);
     }
 
@@ -393,4 +429,5 @@ public class TransactionService {
       return CategoryChartItem.builder().categoryId(catId).categoryName(r[1] != null ? (String) r[1] : "Chưa phân loại").categoryColor(r[2] != null ? (String) r[2] : "#888888").totalAmount(amount).transactionCount(count).percentage(Math.round(pct * 10.0) / 10.0).build();
     }).toList();
   }
+
 }

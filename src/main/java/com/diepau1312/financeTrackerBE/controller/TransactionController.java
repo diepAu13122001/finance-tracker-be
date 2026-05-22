@@ -27,7 +27,7 @@ public class TransactionController {
 
   private final TransactionService transactionService;
 
-  @Operation(summary = "Tạo giao dịch mới", description = "Free user: tối đa 50 giao dịch/tháng. Với TRANSFER cần walletId (nguồn) và targetWalletId (đích).")
+  @Operation(summary = "Tạo giao dịch mới")
   @PostMapping
   public ResponseEntity<TransactionResponse> create(
       @Valid @RequestBody TransactionRequest request) {
@@ -35,25 +35,41 @@ public class TransactionController {
         .body(transactionService.create(request));
   }
 
-  @Operation(summary = "Danh sách giao dịch", description = "Phân trang. Filter: type (INCOME/EXPENSE/TRANSFER), categoryId, walletId.")
+  /**
+   * Lấy danh sách giao dịch với pagination và filter.
+   * <p>
+   * Params:
+   * - page, size: phân trang
+   * - type: filter INCOME / EXPENSE / TRANSFER (optional)
+   * - categoryId: filter theo category (optional)
+   * - walletId: filter theo wallet — bao gồm transfer_in/out (optional)
+   * - search: tìm kiếm text trong note và tên ví (optional, THÊM MỚI)
+   * <p>
+   * Priority: walletId > categoryId > search+type > type > all
+   */
+  @Operation(summary = "Danh sách giao dịch với search + filter")
   @GetMapping
   public ResponseEntity<PageResponse<TransactionResponse>> getAll(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size,
       @RequestParam(required = false) String type,
       @RequestParam(required = false) UUID categoryId,
-      @Parameter(description = "Filter theo wallet — bao gồm cả transfer_in/out của ví đó") @RequestParam(required = false) UUID walletId) {
+      @Parameter(description = "Filter theo wallet — bao gồm cả transfer_in/out của ví đó")
+      @RequestParam(required = false) UUID walletId,
+      @Parameter(description = "Tìm kiếm text trong note và tên ví")
+      @RequestParam(required = false) String search) {
+
     int clampedSize = Math.min(size, 100);
-    var result = transactionService.getAll(page, clampedSize, type, categoryId, walletId);
+    var result = transactionService.getAll(page, clampedSize, type, categoryId, walletId, search);
     return ResponseEntity.ok(PageResponse.from(result));
   }
 
-  @Operation(summary = "Tổng hợp thu chi theo kỳ", description = "Hỗ trợ filter: tháng, quý, năm. Trả về giới hạn giao dịch cho Free user.")
+  @Operation(summary = "Tổng hợp thu chi theo kỳ")
   @GetMapping("/summary")
   public ResponseEntity<TransactionSummaryResponse> getSummary(
-      @Parameter(description = "Năm (mặc định: năm hiện tại)") @RequestParam(required = false) Integer year,
-      @Parameter(description = "Tháng 1-12. Bỏ trống = toàn bộ năm") @RequestParam(required = false) Integer month,
-      @Parameter(description = "Quý 1-4. Ưu tiên hơn month nếu cả 2 được truyền") @RequestParam(required = false) Integer quarter) {
+      @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) Integer month,
+      @RequestParam(required = false) Integer quarter) {
     return ResponseEntity.ok(transactionService.getSummary(year, month, quarter));
   }
 
@@ -68,14 +84,14 @@ public class TransactionController {
         transactionService.getDailyChart(year, month, startMonth, endMonth));
   }
 
-  @Operation(summary = "Biểu đồ xu hướng theo tháng trong năm")
+  @Operation(summary = "Biểu đồ xu hướng theo tháng")
   @GetMapping("/chart/monthly")
   public ResponseEntity<List<MonthlyChartResponse>> getMonthlyChart(
-      @Parameter(description = "Năm cần xem (mặc định: năm hiện tại)") @RequestParam(required = false) Integer year) {
+      @RequestParam(required = false) Integer year) {
     return ResponseEntity.ok(transactionService.getMonthlyChart(year));
   }
 
-  @Operation(summary = "Phân bổ thu/chi theo danh mục — Plus feature")
+  @Operation(summary = "Phân bổ thu/chi theo danh mục")
   @GetMapping("/chart/categories")
   public ResponseEntity<List<CategoryChartItem>> getCategoryChart(
       @RequestParam(defaultValue = "EXPENSE") TransactionType type,
@@ -90,7 +106,7 @@ public class TransactionController {
   @Operation(summary = "Cập nhật giao dịch")
   @PutMapping("/{id}")
   public ResponseEntity<TransactionResponse> update(
-      @Parameter(description = "UUID của giao dịch") @PathVariable UUID id,
+      @PathVariable UUID id,
       @Valid @RequestBody TransactionRequest request) {
     return ResponseEntity.ok(transactionService.update(id, request));
   }
