@@ -10,31 +10,37 @@ import java.time.LocalDate;
 @Data
 public class HouseholdItemRequest {
 
-    @NotBlank
-    @Size(max = 200)
-    private String name;
+  @NotBlank
+  @Size(max = 200)
+  private String name;
 
-    @Size(max = 100)
-    private String brand;
+  @Size(max = 100)
+  private String brand;
 
-    @NotNull
-    private ItemCategory category;
+  @NotNull
+  private ItemCategory category;
 
-    @Min(0)
-    private Long price;
+  @Min(0)
+  private Long price;
 
-    private LocalDate purchaseDate;
-    private LocalDate expiryDate;
+  private LocalDate purchaseDate;
+  private LocalDate expiryDate;
 
-    @DecimalMin("0")
-    private BigDecimal quantity;
+  @DecimalMin("0")
+  private BigDecimal quantity;
 
-    @Size(max = 20)
-    private String unit;
+  @Size(max = 20)
+  private String unit;
 
-    @Min(1)
-    @Max(90)
-    private Integer notifyBeforeDays = 7;
+  @Min(1)
+  @Max(90)
+  private Integer notifyBeforeDays = 7;
 
-    private String notes;
+  private String notes;
+
+  /**
+   * Nếu true: tự động tạo một giao dịch EXPENSE tương ứng
+   * với category "Mua sắm" khi lưu item này.
+   */
+  private boolean linkToTransaction = false;
 }

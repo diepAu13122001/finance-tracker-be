@@ -25,6 +25,8 @@ public interface HouseholdItemRepository extends JpaRepository<HouseholdItem, UU
 
   Optional<HouseholdItem> findByIdAndUserId(UUID id, UUID userId);
 
+  List<HouseholdItem> findByUserIdAndNameIgnoreCaseOrderByPurchaseDateDesc(UUID userId, String name);
+
   /**
    * Tìm items sắp hết hạn trong khoảng [today, today + notifyBeforeDays].
    * Scheduler gọi mỗi ngày lúc 8am để tạo notifications.

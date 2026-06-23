@@ -19,6 +19,9 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
 
   Optional<Category> findByIdAndUserId(UUID id, UUID userId);
 
+  Optional<Category> findFirstByUserIdAndTypeAndNameContainingIgnoreCaseOrderByNameAsc(
+      UUID userId, TransactionType type, String name);
+
   boolean existsByUserIdAndNameAndType(UUID userId, String name, TransactionType type);
 
   @Query("SELECT COUNT(t) FROM Transaction t WHERE t.category.id = :categoryId")

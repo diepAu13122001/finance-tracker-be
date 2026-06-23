@@ -16,6 +16,8 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
 
     List<Wallet> findByUserIdAndStatusOrderByCreatedAtDesc(UUID userId, WalletStatus status);
 
+    Optional<Wallet> findFirstByUserIdAndStatusOrderByCreatedAtDesc(UUID userId, WalletStatus status);
+
     Optional<Wallet> findByIdAndUserId(UUID id, UUID userId);
 
     /** Đếm ví đang ACTIVE của user */
