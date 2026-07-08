@@ -25,6 +25,9 @@ class NotificationSchedulerTest {
 
   @Mock
   private HouseholdItemRepository householdRepo;
+  // Vẫn cần @Mock này để @InjectMocks dựng được ExpiryScheduler (constructor yêu cầu).
+  // Nhưng KHÔNG stub subscriptionRepo trong các test dưới đây, vì checkExpiringItems()
+  // không hề gọi tới subscriptionRepo -> nếu stub sẽ bị Mockito báo "unnecessary stubbing".
   @Mock
   private UserSubscriptionRepository subscriptionRepo;
   @Mock
@@ -43,7 +46,6 @@ class NotificationSchedulerTest {
         .notifyBeforeDays(7).expiryDate(LocalDate.now().plusDays(3)).build();
 
     when(householdRepo.findAllExpiringItems(any(), any())).thenReturn(List.of(item));
-    when(subscriptionRepo.findAll()).thenReturn(List.of());
 
     scheduler.checkExpiringItems();
 
@@ -62,7 +64,6 @@ class NotificationSchedulerTest {
         .notifyBeforeDays(7).expiryDate(LocalDate.now().plusDays(15)).build();
 
     when(householdRepo.findAllExpiringItems(any(), any())).thenReturn(List.of(item));
-    when(subscriptionRepo.findAll()).thenReturn(List.of());
 
     scheduler.checkExpiringItems();
 
@@ -79,7 +80,6 @@ class NotificationSchedulerTest {
         .notifyBeforeDays(7).expiryDate(LocalDate.now().plusDays(2)).build();
 
     when(householdRepo.findAllExpiringItems(any(), any())).thenReturn(List.of(item));
-    when(subscriptionRepo.findAll()).thenReturn(List.of());
 
     scheduler.checkExpiringItems();
     scheduler.checkExpiringItems();

@@ -9,6 +9,7 @@ import com.diepau1312.financeTrackerBE.exception.NotFoundException;
 import com.diepau1312.financeTrackerBE.repository.HouseholdItemRepository;
 import com.diepau1312.financeTrackerBE.repository.ItemReviewRepository;
 import com.diepau1312.financeTrackerBE.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,13 +48,29 @@ class HouseholdServiceTest {
     mockUser = User.builder()
         .id(UUID.randomUUID()).email("test@gmail.com").firstName("Diep").build();
 
+    // Giả lập user đã đăng nhập bằng cách nhét một Authentication mock vào SecurityContext.
     Authentication auth = mock(Authentication.class);
-    when(auth.getName()).thenReturn("test@gmail.com");
+    // QUAN TRỌNG: phải stub isAuthenticated() = true.
+    // SecurityUtil.getCurrentUserEmail() có check "!auth.isAuthenticated()".
+    // Mockito mặc định trả false cho method boolean chưa stub -> nếu thiếu dòng này
+    // sẽ bị ném AuthException("Chưa đăng nhập").
+    //
+    // Dùng lenient() vì 2 test response_*() gọi thẳng HouseholdItemResponse.from(),
+    // không đụng SecurityContext -> nếu để strict, các stub dùng chung này sẽ bị
+    // Mockito báo "UnnecessaryStubbingException" khi chạy riêng những test đó.
+    lenient().when(auth.isAuthenticated()).thenReturn(true);
+    lenient().when(auth.getName()).thenReturn("test@gmail.com");
     SecurityContext ctx = mock(SecurityContext.class);
-    when(ctx.getAuthentication()).thenReturn(auth);
+    lenient().when(ctx.getAuthentication()).thenReturn(auth);
     SecurityContextHolder.setContext(ctx);
 
-    when(userRepo.findByEmail("test@gmail.com")).thenReturn(Optional.of(mockUser));
+    lenient().when(userRepo.findByEmail("test@gmail.com")).thenReturn(Optional.of(mockUser));
+  }
+
+  @AfterEach
+  void tearDown() {
+    // Dọn context sau mỗi test để không rò rỉ sang test khác
+    SecurityContextHolder.clearContext();
   }
 
   @Test

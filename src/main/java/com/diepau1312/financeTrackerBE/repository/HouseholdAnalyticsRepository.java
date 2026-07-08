@@ -17,13 +17,21 @@ public interface HouseholdAnalyticsRepository extends JpaRepository<HouseholdIte
   /**
    * Tổng hợp chi tiêu theo THÁNG và theo category cho một user.
    * <p>
-   * FUNCTION('TO_CHAR', date, 'YYYY-MM') -> chuyển ngày thành chuỗi "2026-06"
-   * trên PostgreSQL, để gom tất cả ngày trong cùng 1 tháng vào 1 cột.
+   * to_char(date, 'YYYY-MM') -> chuyển ngày thành chuỗi "2026-06" (PostgreSQL),
+   * để gom tất cả ngày trong cùng 1 tháng vào 1 nhóm.
+   * <p>
+   * QUAN TRỌNG: phải bọc CAST(... AS String).
+   * Lý do: Hibernate 6.5 không biết trước kiểu trả về của hàm to_char
+   * (nó là hàm tự do, không đăng ký sẵn). Khi map vào constructor
+   * HouseholdAnalyticsDTO(String, ...) mà Hibernate không xác định được
+   * kiểu là String -> query fail lúc khởi động app ("Could not create query").
+   * CAST(... AS String) nói rõ cho Hibernate biết kết quả là chuỗi.
+   * <p>
    * GROUP BY theo (tháng + category) -> mỗi tháng có nhiều dòng (mỗi category 1 dòng).
    */
   @Query("""
           SELECT new com.diepau1312.financeTrackerBE.dto.household.HouseholdAnalyticsDTO(
-              FUNCTION('TO_CHAR', h.purchaseDate, 'YYYY-MM'),
+              CAST(FUNCTION('to_char', h.purchaseDate, 'YYYY-MM') AS String),
               h.category,
               SUM(h.price),
               COUNT(h)
@@ -32,8 +40,8 @@ public interface HouseholdAnalyticsRepository extends JpaRepository<HouseholdIte
           WHERE h.user.id = :userId
             AND h.purchaseDate >= :fromDate
             AND h.price IS NOT NULL
-          GROUP BY FUNCTION('TO_CHAR', h.purchaseDate, 'YYYY-MM'), h.category
-          ORDER BY FUNCTION('TO_CHAR', h.purchaseDate, 'YYYY-MM') ASC
+          GROUP BY CAST(FUNCTION('to_char', h.purchaseDate, 'YYYY-MM') AS String), h.category
+          ORDER BY CAST(FUNCTION('to_char', h.purchaseDate, 'YYYY-MM') AS String) ASC
       """)
   List<HouseholdAnalyticsDTO> findSpendingByMonthAndCategory(
       @Param("userId") UUID userId,
