@@ -28,15 +28,19 @@ public class HouseholdAnalyticsService {
     User user = userRepository.findByEmail(userEmail)
         .orElseThrow(() -> new NotFoundException("Không tìm thấy user"));
     UUID userId = user.getId();
+
     LocalDate today = LocalDate.now();
-    LocalDate startOfCurrentMonth = today.withDayOfMonth(1);
+    LocalDate startOfCurrentMonth = today.withDayOfMonth(1);     // ngày 1 tháng này
     LocalDate startOfPreviousMonth = startOfCurrentMonth.minusMonths(1);
 
+    // today.plusDays(1): để bao gồm cả ngày hôm nay (vì điều kiện là < to)
     Long currentTotal = analyticsRepository.sumSpendingBetween(userId, startOfCurrentMonth, today.plusDays(1));
     Long previousTotal = analyticsRepository.sumSpendingBetween(userId, startOfPreviousMonth, startOfCurrentMonth);
     currentTotal = currentTotal != null ? currentTotal : 0L;
     previousTotal = previousTotal != null ? previousTotal : 0L;
 
+    // % thay đổi = (tháng này - tháng trước) / tháng trước * 100
+    // Chỉ tính khi tháng trước > 0 để tránh chia cho 0
     Double percentageChange = null;
     if (previousTotal > 0) {
       percentageChange = BigDecimal.valueOf(currentTotal - previousTotal)
@@ -45,6 +49,7 @@ public class HouseholdAnalyticsService {
           .doubleValue();
     }
 
+    // Lấy dữ liệu 6 tháng gần nhất để vẽ biểu đồ
     LocalDate sixMonthsAgo = startOfCurrentMonth.minusMonths(5);
     List<HouseholdAnalyticsDTO> breakdown =
         analyticsRepository.findSpendingByMonthAndCategory(userId, sixMonthsAgo);

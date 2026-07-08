@@ -13,22 +13,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RestockPredictionDTO {
-
-  // ID của item cần dự đoán
   private UUID itemId;
-
-  // Tên sản phẩm
   private String itemName;
-
-  // Ngày dự đoán sẽ dùng hết (có thể null nếu không đủ dữ liệu)
-  private LocalDate predictedRunOutDate;
-
-  // Số ngày ước tính còn lại
-  private Integer estimatedDaysLeft;
-
-  // Giải thích từ AI (tiếng Việt)
-  private String explanation;
-
-  // Có đủ dữ liệu để dự đoán không
-  private boolean hasEnoughData;
+  private LocalDate predictedRunOutDate; // ngày dự đoán dùng hết (null nếu thiếu data)
+  private Integer estimatedDaysLeft; // số ngày còn lại ước tính
+  private String explanation; // giải thích tiếng Việt
+  private boolean hasEnoughData; // có đủ lịch sử để dự đoán không
 }

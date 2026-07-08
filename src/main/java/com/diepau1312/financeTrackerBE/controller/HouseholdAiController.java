@@ -16,21 +16,10 @@ public class HouseholdAiController {
 
   private final HouseholdAiService householdAiService;
 
-  /**
-   * Dự đoán khi nào cần mua lại một sản phẩm.
-   * Yêu cầu gói PREMIUM.
-   */
-  @GetMapping("/household/restock-prediction/{itemId}")
-  @RequiresPlan("PREMIUM")
-  public ResponseEntity<RestockPredictionDTO> predictRestock(
-      @PathVariable UUID itemId) {
-    return ResponseEntity.ok(householdAiService.predictRestock(itemId));
-  }
-
+  // Đường dẫn FE đang gọi
   @GetMapping("/restock-prediction/{itemId}")
   @RequiresPlan("PREMIUM")
-  public ResponseEntity<RestockPredictionDTO> predictRestockPlannerPath(
-      @PathVariable UUID itemId) {
+  public ResponseEntity<RestockPredictionDTO> predictRestock(@PathVariable UUID itemId) {
     return ResponseEntity.ok(householdAiService.predictRestock(itemId));
   }
 }

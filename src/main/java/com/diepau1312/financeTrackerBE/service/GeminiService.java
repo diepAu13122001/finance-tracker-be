@@ -23,26 +23,14 @@ public class GeminiService {
   private final WebClient.Builder webClientBuilder;
   private final ObjectMapper objectMapper;
 
-  /**
-   * Parse text tiếng Việt thành thông tin giao dịch.
-   * <p>
-   * Ví dụ input: "ăn trưa 45k ở KFC"
-   * Ví dụ output: { type: EXPENSE, amount: 45000, note: "ăn trưa KFC",
-   * suggestedCategory: "Ăn uống" }
-   * <p>
-   * Dùng WebClient (reactive) thay RestTemplate — Spring Boot 3 khuyến khích dùng
-   * WebClient.
-   */
   public AIParseResponse parseTransaction(String text, String apiKey) {
     String prompt = buildPrompt(text);
 
     Map<String, Object> requestBody = Map.of("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
 
     try {
-      // Lấy cả status code để xử lý 429 riêng
       var response = webClientBuilder.build().post().uri(GEMINI_URL + "?key=" + apiKey).bodyValue(requestBody)
           .retrieve()
-          // Xử lý lỗi HTTP trước khi đọc body
           .onStatus(status -> status.value() == 429, clientResponse -> Mono.error(new RuntimeException("RATE_LIMIT")))
           .onStatus(status -> status.value() == 400, clientResponse -> Mono.error(new RuntimeException("BAD_REQUEST")))
           .onStatus(status -> status.value() == 403, clientResponse -> Mono.error(new RuntimeException("INVALID_KEY")))
@@ -51,7 +39,6 @@ public class GeminiService {
       return parseGeminiResponse(response, text);
 
     } catch (RuntimeException e) {
-      // Map error code sang message tiếng Việt rõ ràng
       String message = switch (e.getMessage()) {
         case "RATE_LIMIT" -> "Gọi API quá nhanh. Đợi 1 phút rồi thử lại.";
         case "BAD_REQUEST" -> "Request không hợp lệ. Kiểm tra lại API key.";
@@ -64,12 +51,6 @@ public class GeminiService {
     }
   }
 
-  /**
-   * Prompt engineering:
-   * - Chỉ trả về JSON thuần (không markdown, không giải thích)
-   * - Ví dụ cụ thể giúp model hiểu đúng format
-   * - Fallback type = EXPENSE nếu không rõ
-   */
   private String buildPrompt(String text) {
     return """
         Phân tích đoạn văn tiếng Việt sau và trả về JSON thuần (không có ```json, không giải thích):
@@ -88,17 +69,37 @@ public class GeminiService {
   }
 
   /**
-   * Parse JSON response từ Gemini.
-   * Gemini trả về nested JSON: candidates[0].content.parts[0].text
+   * Strip markdown code block mà Gemini đôi khi trả về dù đã dặn không dùng.
+   * Ví dụ Gemini trả: ```json\n{"type":"EXPENSE"}\n```
+   * Sau khi strip còn: {"type":"EXPENSE"}
    */
+  private String stripMarkdownJson(String raw) {
+    if (raw == null)
+      return "";
+    String trimmed = raw.trim();
+    // Xóa ```json hoặc ``` ở đầu
+    if (trimmed.startsWith("```")) {
+      int firstNewline = trimmed.indexOf('\n');
+      if (firstNewline != -1) {
+        trimmed = trimmed.substring(firstNewline + 1);
+      }
+    }
+    // Xóa ``` ở cuối
+    if (trimmed.endsWith("```")) {
+      trimmed = trimmed.substring(0, trimmed.lastIndexOf("```"));
+    }
+    return trimmed.trim();
+  }
+
   private AIParseResponse parseGeminiResponse(String responseJson, String originalText) {
     try {
       JsonNode root = objectMapper.readTree(responseJson);
-      // Đọc text từ response Gemini
       String content = root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
 
-      // Parse JSON kết quả Gemini trả về
-      JsonNode result = objectMapper.readTree(content.trim());
+      // Strip markdown trước khi parse JSON
+      String cleanContent = stripMarkdownJson(content);
+
+      JsonNode result = objectMapper.readTree(cleanContent);
 
       return AIParseResponse.builder().success(true).rawText(originalText).type(result.path("type").asText("EXPENSE"))
           .amount(result.path("amount").asLong(0)).note(result.path("note").asText(""))
@@ -111,18 +112,6 @@ public class GeminiService {
     }
   }
 
-  /**
-   * Phân loại sản phẩm gia đình thành category.
-   *
-   * Tách riêng khỏi parseTransaction vì:
-   * - Prompt khác nhau hoàn toàn (phân loại sản phẩm vs parse số tiền)
-   * - Response format khác (category string vs amount + type)
-   * - Có thể tune riêng cho household use case
-   *
-   * Ví dụ:
-   * Input: "Sữa rửa mặt La Roche-Posay Effaclar"
-   * Output: { category: "SKINCARE", subcategory: "Skincare - Làm sạch" }
-   */
   public AIClassifyResponse classifyHouseholdItem(String name, String brand, String apiKey) {
     String prompt = buildClassifyPrompt(name, brand);
 
@@ -159,7 +148,7 @@ public class GeminiService {
         : name;
 
     return """
-        Phân loại sản phẩm gia đình này vào đúng 1 category. Trả về JSON thuần:
+        Phân loại sản phẩm gia đình này vào đúng 1 category. Trả về JSON thuần (không có ```json, không giải thích):
 
         Sản phẩm: "%s"
 
@@ -182,7 +171,13 @@ public class GeminiService {
       String content = root.path("candidates").get(0)
           .path("content").path("parts").get(0)
           .path("text").asText();
-      JsonNode result = objectMapper.readTree(content.trim());
+
+      log.info("Gemini raw content for '{}': [{}]", originalName, content);
+      // Strip markdown trước khi parse JSON
+      String cleanContent = stripMarkdownJson(content);
+      log.info("After strip: [{}]", cleanContent); // thêm dòng này
+
+      JsonNode result = objectMapper.readTree(cleanContent);
 
       return AIClassifyResponse.builder()
           .success(true)

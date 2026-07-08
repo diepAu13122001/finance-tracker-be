@@ -25,8 +25,6 @@ public interface HouseholdItemRepository extends JpaRepository<HouseholdItem, UU
 
   Optional<HouseholdItem> findByIdAndUserId(UUID id, UUID userId);
 
-  List<HouseholdItem> findByUserIdAndNameIgnoreCaseOrderByPurchaseDateDesc(UUID userId, String name);
-
   /**
    * Tìm items sắp hết hạn trong khoảng [today, today + notifyBeforeDays].
    * Scheduler gọi mỗi ngày lúc 8am để tạo notifications.
@@ -75,14 +73,14 @@ public interface HouseholdItemRepository extends JpaRepository<HouseholdItem, UU
    * ORDER BY year DESC, month DESC
    */
   @Query(value = """
-      SELECT 
+      SELECT
           EXTRACT(MONTH FROM h.purchase_date)::INTEGER as month,
           EXTRACT(YEAR FROM h.purchase_date)::INTEGER as year,
           COALESCE(SUM(h.price), 0) as totalSpent,
           COUNT(h.id) as itemCount
       FROM household_items h
       WHERE h.user_id = :userId AND h.price IS NOT NULL
-      GROUP BY EXTRACT(YEAR FROM h.purchase_date), 
+      GROUP BY EXTRACT(YEAR FROM h.purchase_date),
                EXTRACT(MONTH FROM h.purchase_date)
       ORDER BY year DESC, month DESC
       """, nativeQuery = true)
@@ -93,7 +91,7 @@ public interface HouseholdItemRepository extends JpaRepository<HouseholdItem, UU
    * Ví dụ: Skincare: 1.2M, Housecare: 800k, ...
    */
   @Query(value = """
-      SELECT h.category, 
+      SELECT h.category,
              COALESCE(SUM(h.price), 0) as totalSpent
       FROM household_items h
       WHERE h.user_id = :userId AND h.price IS NOT NULL
@@ -101,4 +99,8 @@ public interface HouseholdItemRepository extends JpaRepository<HouseholdItem, UU
       ORDER BY totalSpent DESC
       """, nativeQuery = true)
   List<Object[]> findSpendingByCategory(@Param("userId") UUID userId);
+
+  // Lấy tất cả lần mua của cùng 1 tên sản phẩm (không phân biệt hoa thường),
+  // sắp xếp ngày mua giảm dần (mới nhất trước).
+  List<HouseholdItem> findByUserIdAndNameIgnoreCaseOrderByPurchaseDateDesc(UUID userId, String name);
 }

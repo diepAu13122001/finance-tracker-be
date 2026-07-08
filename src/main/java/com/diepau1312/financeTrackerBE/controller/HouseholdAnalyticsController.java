@@ -19,10 +19,7 @@ public class HouseholdAnalyticsController {
 
   private final HouseholdAnalyticsService analyticsService;
 
-  /**
-   * Trả về tóm tắt chi tiêu đồ dùng gia đình của user.
-   * Yêu cầu gói PREMIUM.
-   */
+  // Yêu cầu gói PREMIUM (chặn ở tầng AOP qua @RequiresPlan)
   @GetMapping("/summary")
   @RequiresPlan("PREMIUM")
   @Operation(summary = "Lấy tóm tắt chi tiêu đồ dùng gia đình")

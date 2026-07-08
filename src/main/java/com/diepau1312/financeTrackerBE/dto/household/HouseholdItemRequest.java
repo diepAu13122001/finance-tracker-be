@@ -38,9 +38,9 @@ public class HouseholdItemRequest {
 
   private String notes;
 
-  /**
-   * Nếu true: tự động tạo một giao dịch EXPENSE tương ứng
-   * với category "Mua sắm" khi lưu item này.
-   */
-  private boolean linkToTransaction = false;
+/**
+ * Nếu true: tự động tạo một giao dịch EXPENSE tương ứng
+ * với category "Mua sắm" khi lưu item này.
+ */
+private boolean linkToTransaction = false;
 }
